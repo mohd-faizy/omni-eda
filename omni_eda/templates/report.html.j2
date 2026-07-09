@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title }}</title>
+<style>
+  :root {
+    --bg: {{ theme.background }};
+    --fg: {{ theme.foreground }};
+    --grid: {{ theme.grid_color }};
+    --accent: {{ theme.accent }};
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: {{ theme.font_family }};
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+  }
+  a { color: var(--accent); }
+  .layout { display: flex; min-height: 100vh; }
+  nav.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--grid);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav.sidebar h2 { font-size: 15px; margin: 0 0 12px; }
+  nav.sidebar a {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--fg);
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  nav.sidebar a:hover { background: var(--grid); }
+  main { flex: 1; padding: 32px 40px 80px; max-width: 1180px; }
+  header.report-header { margin-bottom: 32px; }
+  header.report-header h1 { margin: 0 0 6px; font-size: 28px; }
+  header.report-header .meta { color: #888; font-size: 13px; }
+  section { margin-bottom: 48px; }
+  section > h2 {
+    font-size: 20px;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: color-mix(in srgb, var(--bg) 96%, var(--fg) 4%);
+  }
+  .card .value { font-size: 22px; font-weight: 700; }
+  .card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: .04em; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 16px; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+  th { background: color-mix(in srgb, var(--bg) 92%, var(--fg) 8%); font-weight: 600; }
+  tr:hover { background: color-mix(in srgb, var(--bg) 94%, var(--fg) 6%); }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge.critical { background: #fbdada; color: #9c1c1c; }
+  .badge.warning { background: #fdeecb; color: #94620a; }
+  .badge.info { background: #dbe8fd; color: #1d4c9c; }
+  details.column-card {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    padding: 10px 16px;
+  }
+  details.column-card > summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 6px 0;
+    list-style: none;
+  }
+  details.column-card > summary::-webkit-details-marker { display: none; }
+  details.column-card > summary:before { content: "▸ "; color: var(--accent); }
+  details.column-card[open] > summary:before { content: "▾ "; }
+  .col-type { font-weight: 400; color: #888; font-size: 12px; }
+  .image-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-top: 10px; }
+  .image-grid figure { margin: 0; border: 1px solid var(--grid); border-radius: 10px; padding: 10px; }
+  .image-grid img { width: 100%; height: auto; border-radius: 4px; }
+  .image-grid figcaption { font-size: 12px; color: #888; margin-top: 6px; text-align: center; }
+  .single-image { border: 1px solid var(--grid); border-radius: 10px; padding: 10px; max-width: 720px; margin-bottom: 16px; }
+  .single-image img { width: 100%; height: auto; }
+  .empty-note { color: #888; font-style: italic; font-size: 13px; }
+  .suggestion { padding: 10px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--bg) 95%, var(--accent) 5%); margin-bottom: 8px; border-radius: 0 6px 6px 0; font-size: 13px;}
+  .suggestion .action { font-weight: 700; text-transform: uppercase; font-size: 11px; color: var(--accent); }
+  footer { color: #888; font-size: 12px; padding: 24px 40px; border-top: 1px solid var(--grid); }
+  code { background: color-mix(in srgb, var(--bg) 90%, var(--fg) 10%); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <h2>{{ title }}</h2>
+    <a href="#overview">Overview</a>
+    <a href="#quality">Data Quality</a>
+    <a href="#missing">Missing Values</a>
+    <a href="#columns">Column Statistics</a>
+    <a href="#correlation">Correlations</a>
+    <a href="#outliers">Outliers</a>
+    <a href="#bivariate">Bivariate Analysis</a>
+    <a href="#multivariate">Multivariate Analysis</a>
+    {% if timeseries_plots %}<a href="#timeseries">Time Series</a>{% endif %}
+    {% if target_analysis %}<a href="#target">Target Analysis</a>{% endif %}
+    <a href="#features">Feature Engineering</a>
+    <a href="#summary">Summary</a>
+  </nav>
+  <main>
+    <header class="report-header" id="overview">
+      <h1>{{ title }}</h1>
+      <div class="meta">Generated {{ generated_at }} &middot; auto_eda v{{ version }}</div>
+    </header>
+
+    <section id="overview-cards">
+      <div class="cards">
+        <div class="card"><div class="value">{{ '{:,}'.format(overview.n_rows) }}</div><div class="label">Rows</div></div>
+        <div class="card"><div class="value">{{ overview.n_columns }}</div><div class="label">Columns</div></div>
+        <div class="card"><div class="value">{{ overview.memory_human }}</div><div class="label">Memory</div></div>
+        <div class="card"><div class="value">{{ overview.n_duplicate_rows }}</div><div class="label">Duplicate rows</div></div>
+        <div class="card"><div class="value">{{ '%.1f'|format(overview.missing_pct) }}%</div><div class="label">Missing cells</div></div>
+        <div class="card"><div class="value">{{ quality.n_critical }}</div><div class="label">Critical issues</div></div>
+      </div>
+      <h3>Column type breakdown</h3>
+      <table>
+        <tr>{% for k in overview.type_counts.keys() %}<th>{{ k }}</th>{% endfor %}</tr>
+        <tr>{% for v in overview.type_counts.values() %}<td>{{ v }}</td>{% endfor %}</tr>
+      </table>
+    </section>
+
+    <section id="quality">
+      <h2>Data Quality Report</h2>
+      {% if quality.issues %}
+      <table>
+        <tr><th>Severity</th><th>Category</th><th>Column</th><th>Message</th></tr>
+        {% for issue in quality.issues %}
+        <tr>
+          <td><span class="badge {{ issue.severity }}">{{ issue.severity }}</span></td>
+          <td>{{ issue.category }}</td>
+          <td>{{ issue.column or '-' }}</td>
+          <td>{{ issue.message }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <p class="empty-note">No data quality issues detected.</p>
+      {% endif %}
+    </section>
+
+    <section id="missing">
+      <h2>Missing Value Analysis</h2>
+      <p>{{ missing.columns_with_missing }} column(s) have missing values &middot;
+         {{ '{:,}'.format(missing.rows_with_any_missing) }} row(s) contain at least one missing value &middot;
+         {{ '%.2f'|format(missing.overall_missing_pct) }}% of all cells are missing.</p>
+      <div class="image-grid">
+        {% for name, img in missing_plots.items() %}
+        <figure><img src="{{ img }}" loading="lazy"><figcaption>{{ name }}</figcaption></figure>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="columns">
+      <h2>Column Statistics &amp; Distributions</h2>
+      {% for col in columns %}
+      <details class="column-card">
+        <summary>{{ col.name }} <span class="col-type">&mdash; {{ col.base_type }}{% if col.semantic_type %} / {{ col.semantic_type }}{% endif %}, {{ col.n_unique }} unique, {{ '%.1f'|format(col.missing_pct) }}% missing</span></summary>
+        <table>
+          {% for k, v in col.stats.items() %}
+          {% if k not in ('percentiles', 'top_values', 'top_words', 'top_chars', 'rare_categories') %}
+          <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+          {% endif %}
+          {% endfor %}
+        </table>
+        {% if col.plots %}
+        <div class="image-grid">
+          {% for name, img in col.plots.items() %}
+          <figure><img src="{{ img }}" loading="lazy"><figcaption>{{ name }}</figcaption></figure>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </details>
+      {% endfor %}
+    </section>
+
+    <section id="correlation">
+      <h2>Correlation &amp; Association Analysis</h2>
+      {% if correlation.high_pairs %}
+      <table>
+        <tr><th>Column A</th><th>Column B</th><th>Value</th></tr>
+        {% for p in correlation.high_pairs %}
+        <tr><td>{{ p.col_a }}</td><td>{{ p.col_b }}</td><td>{{ '%.3f'|format(p.value) }}</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <p class="empty-note">No highly correlated pairs found above the configured threshold.</p>
+      {% endif %}
+    </section>
+
+    <section id="outliers">
+      <h2>Outlier Detection</h2>
+      {% if outliers %}
+      <table>
+        <tr><th>Column</th><th>Method</th><th>Count</th><th>% of rows</th></tr>
+        {% for row in outliers %}
+        <tr><td>{{ row.column }}</td><td>{{ row.method }}</td><td>{{ row.n_outliers }}</td><td>{{ row.pct_outliers }}%</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <p class="empty-note">No numeric columns available for outlier detection.</p>
+      {% endif %}
+    </section>
+
+    <section id="bivariate">
+      <h2>Bivariate Analysis</h2>
+      <div class="image-grid">
+        {% for name, img in bivariate_plots.items() %}
+        <figure><img src="{{ img }}" loading="lazy"><figcaption>{{ name.replace('_', ' ') }}</figcaption></figure>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="multivariate">
+      <h2>Multivariate Analysis</h2>
+      <div class="image-grid">
+        {% for name, img in multivariate_plots.items() %}
+        <figure><img src="{{ img }}" loading="lazy"><figcaption>{{ name.replace('_', ' ') }}</figcaption></figure>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if timeseries_plots %}
+    <section id="timeseries">
+      <h2>Time Series Analysis</h2>
+      {% for col, plots in timeseries_plots.items() %}
+      <h3>{{ col }}</h3>
+      <div class="image-grid">
+        {% for name, img in plots.items() %}
+        <figure><img src="{{ img }}" loading="lazy"><figcaption>{{ name }}</figcaption></figure>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if target_analysis %}
+    <section id="target">
+      <h2>Target Analysis: {{ target_analysis.target }}</h2>
+      {% if target_analysis.class_imbalance %}
+      <h3>Class balance</h3>
+      <table>
+        <tr><th>Class</th><th>Count</th><th>Proportion</th></tr>
+        {% for k, v in target_analysis.class_imbalance.counts.items() %}
+        <tr><td>{{ k }}</td><td>{{ v }}</td><td>{{ '%.1f'|format(target_analysis.class_imbalance.proportions[k] * 100) }}%</td></tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+
+      {% if target_analysis.feature_associations %}
+      <h3>Feature associations with target</h3>
+      <table>
+        <tr><th>Column</th><th>Test</th><th>Statistic</th><th>p-value</th></tr>
+        {% for a in target_analysis.feature_associations %}
+        <tr>
+          <td>{{ a.column }}</td><td>{{ a.test }}</td>
+          <td>{{ '%.4f'|format(a.f_statistic) if a.f_statistic is defined else ('%.4f'|format(a.chi2) if a.chi2 is defined else '%.4f'|format(a.value)) }}</td>
+          <td>{{ '%.4g'|format(a.p_value) if a.p_value is defined else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+
+      {% if target_analysis.feature_importance_table %}
+      <h3>Feature importance</h3>
+      <table>
+        <tr><th>Feature</th><th>RF importance</th><th>Mutual information</th></tr>
+        {% for row in target_analysis.feature_importance_table %}
+        <tr><td>{{ row.feature }}</td><td>{{ '%.4f'|format(row.importance_rf) }}</td><td>{{ '%.4f'|format(row.mutual_information) }}</td></tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+
+      {% if target_analysis.curves %}
+      <h3>Baseline classifier evaluation {% if target_analysis.curves.roc_auc %}(ROC AUC = {{ '%.3f'|format(target_analysis.curves.roc_auc) }}){% endif %}</h3>
+      <div class="image-grid">
+        {% if target_analysis.curves.roc_curve %}<figure><img src="{{ target_analysis.curves.roc_curve }}"><figcaption>ROC curve</figcaption></figure>{% endif %}
+        {% if target_analysis.curves.pr_curve %}<figure><img src="{{ target_analysis.curves.pr_curve }}"><figcaption>Precision-Recall curve</figcaption></figure>{% endif %}
+        {% if target_analysis.curves.lift_chart %}<figure><img src="{{ target_analysis.curves.lift_chart }}"><figcaption>Lift chart</figcaption></figure>{% endif %}
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section id="features">
+      <h2>Feature Engineering Suggestions</h2>
+      {% if suggestions %}
+        {% for s in suggestions %}
+        <div class="suggestion"><span class="action">{{ s.action.replace('_',' ') }}</span>{% if s.column %} &middot; <code>{{ s.column }}</code>{% endif %}<br>{{ s.rationale }}</div>
+        {% endfor %}
+      {% else %}
+      <p class="empty-note">No specific suggestions &mdash; the dataset looks clean.</p>
+      {% endif %}
+    </section>
+
+    <section id="summary">
+      <h2>Final Summary</h2>
+      <p>{{ final_summary }}</p>
+    </section>
+  </main>
+</div>
+<footer>Generated by auto_eda v{{ version }} on {{ generated_at }}.</footer>
+</body>
+</html>

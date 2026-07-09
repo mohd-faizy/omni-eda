@@ -1,0 +1,201 @@
+"""A single-file, dependency-free (besides a CDN script tag) interactive dashboard.
+
+Rather than standing up a Dash/Flask server -- overkill for a report artifact
+that should be emailable and openable by double-clicking -- this renders a
+static HTML page that embeds the data it needs as JSON and uses Plotly.js
+(loaded from a CDN) for the interactive pieces: a column picker with live
+histograms/bar charts, a scatter explorer, and a correlation heatmap.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from omni_eda.config import EDAConfig
+from omni_eda.utils import to_serializable
+
+_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{title} - Interactive Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  body {{ font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fafbfc; color: #1a1a2e; }}
+  header {{ padding: 20px 32px; border-bottom: 1px solid #e3e7ec; }}
+  header h1 {{ margin: 0; font-size: 22px; }}
+  .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 24px 32px; }}
+  .panel {{ background: white; border: 1px solid #e3e7ec; border-radius: 10px; padding: 16px; }}
+  .panel.full {{ grid-column: 1 / -1; }}
+  select {{ padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px; }}
+  .stat-row {{ display: flex; gap: 24px; padding: 0 32px 16px; flex-wrap: wrap; }}
+  .stat {{ background: white; border: 1px solid #e3e7ec; border-radius: 10px; padding: 10px 18px; }}
+  .stat .value {{ font-size: 20px; font-weight: 700; }}
+  .stat .label {{ font-size: 11px; color: #888; text-transform: uppercase; }}
+</style>
+</head>
+<body>
+<header><h1>{title} &mdash; Interactive Dashboard</h1></header>
+<div class="stat-row" id="stat-row"></div>
+<div class="grid">
+  <div class="panel">
+    <label for="col-picker">Column distribution</label><br>
+    <select id="col-picker"></select>
+    <div id="dist-chart" style="height:360px;"></div>
+  </div>
+  <div class="panel">
+    <label for="numeric-x">Scatter: X vs Y</label><br>
+    <select id="numeric-x"></select>
+    <select id="numeric-y"></select>
+    <div id="scatter-chart" style="height:360px;"></div>
+  </div>
+  <div class="panel full">
+    <div id="corr-heatmap" style="height:520px;"></div>
+  </div>
+  <div class="panel full">
+    <div id="missing-chart" style="height:340px;"></div>
+  </div>
+</div>
+<script>
+const DATA = {data_json};
+
+function renderStats() {{
+  const row = document.getElementById('stat-row');
+  const stats = [
+    ['Rows', DATA.overview.n_rows.toLocaleString()],
+    ['Columns', DATA.overview.n_columns],
+    ['Numeric cols', DATA.numeric_columns.length],
+    ['Categorical cols', DATA.categorical_columns.length],
+    ['Missing cells %', DATA.overview.missing_pct.toFixed(2) + '%'],
+  ];
+  row.innerHTML = stats.map(([label, value]) =>
+    `<div class="stat"><div class="value">${{value}}</div><div class="label">${{label}}</div></div>`
+  ).join('');
+}}
+
+function renderDistribution(col) {{
+  const info = DATA.columns[col];
+  let trace;
+  if (info.kind === 'numeric') {{
+    trace = {{ x: info.values, type: 'histogram', marker: {{ color: '#0B5FA5' }} }};
+  }} else {{
+    trace = {{ x: Object.keys(info.counts), y: Object.values(info.counts), type: 'bar', marker: {{ color: '#00A99D' }} }};
+  }}
+  Plotly.newPlot('dist-chart', [trace], {{ margin: {{ t: 20 }}, title: col }}, {{ responsive: true }});
+}}
+
+function renderScatter(xCol, yCol) {{
+  const x = DATA.columns[xCol].values;
+  const y = DATA.columns[yCol].values;
+  const n = Math.min(x.length, y.length);
+  const trace = {{ x: x.slice(0, n), y: y.slice(0, n), mode: 'markers', type: 'scattergl', marker: {{ size: 5, opacity: 0.6, color: '#D64550' }} }};
+  Plotly.newPlot('scatter-chart', [trace], {{ margin: {{ t: 20 }}, xaxis: {{ title: xCol }}, yaxis: {{ title: yCol }} }}, {{ responsive: true }});
+}}
+
+function renderHeatmap() {{
+  if (!DATA.correlation || DATA.correlation.columns.length < 2) return;
+  const trace = {{
+    z: DATA.correlation.matrix, x: DATA.correlation.columns, y: DATA.correlation.columns,
+    type: 'heatmap', colorscale: 'RdBu', zmin: -1, zmax: 1, reversescale: true,
+  }};
+  Plotly.newPlot('corr-heatmap', [trace], {{ title: 'Correlation heatmap', margin: {{ t: 40 }} }}, {{ responsive: true }});
+}}
+
+function renderMissing() {{
+  const trace = {{ x: DATA.missing.columns, y: DATA.missing.pct, type: 'bar', marker: {{ color: '#F2A93B' }} }};
+  Plotly.newPlot('missing-chart', [trace], {{ title: 'Missing values (%) by column', margin: {{ t: 40 }} }}, {{ responsive: true }});
+}}
+
+function init() {{
+  renderStats();
+  const picker = document.getElementById('col-picker');
+  Object.keys(DATA.columns).forEach(col => {{
+    const opt = document.createElement('option'); opt.value = col; opt.textContent = col;
+    picker.appendChild(opt);
+  }});
+  picker.addEventListener('change', e => renderDistribution(e.target.value));
+  if (picker.options.length) renderDistribution(picker.options[0].value);
+
+  const xSel = document.getElementById('numeric-x');
+  const ySel = document.getElementById('numeric-y');
+  DATA.numeric_columns.forEach(col => {{
+    xSel.appendChild(new Option(col, col));
+    ySel.appendChild(new Option(col, col));
+  }});
+  if (ySel.options.length > 1) ySel.selectedIndex = 1;
+  const updateScatter = () => renderScatter(xSel.value, ySel.value);
+  xSel.addEventListener('change', updateScatter);
+  ySel.addEventListener('change', updateScatter);
+  if (DATA.numeric_columns.length >= 2) updateScatter();
+
+  renderHeatmap();
+  renderMissing();
+}}
+
+init();
+</script>
+</body>
+</html>
+"""
+
+
+def _build_payload(
+    results: dict[str, Any], config: EDAConfig, max_points: int = 3000, max_categories: int = 30
+) -> dict[str, Any]:
+    df: pd.DataFrame | None = results.get("dataframe_sample")
+    profiles = results["profiles"]
+
+    numeric_cols = [c for c, p in profiles.items() if p.is_numeric and not p.is_constant]
+    categorical_cols = [c for c, p in profiles.items() if (p.is_categorical or p.is_boolean) and not p.is_constant]
+
+    columns: dict[str, Any] = {}
+    if df is not None:
+        for col in numeric_cols:
+            values = pd.to_numeric(df[col], errors="coerce").dropna()
+            if len(values) > max_points:
+                values = values.sample(max_points, random_state=0)
+            columns[col] = {"kind": "numeric", "values": values.round(4).tolist()}
+        for col in categorical_cols:
+            counts = df[col].value_counts().head(max_categories)
+            columns[col] = {"kind": "categorical", "counts": {str(k): int(v) for k, v in counts.items()}}
+
+    correlation = results.get("correlation", {})
+    numeric_matrix = correlation.get("numeric", {}).get(config.correlation_methods[0]) if correlation.get("numeric") else None
+    corr_payload: dict[str, Any] = {"columns": [], "matrix": []}
+    if isinstance(numeric_matrix, pd.DataFrame) and not numeric_matrix.empty:
+        corr_payload = {
+            "columns": list(numeric_matrix.columns),
+            "matrix": numeric_matrix.round(3).fillna(0).values.tolist(),
+        }
+
+    missing_table = results.get("missing", {}).get("summary_table")
+    if isinstance(missing_table, pd.DataFrame) and not missing_table.empty:
+        nonzero = missing_table[missing_table["n_missing"] > 0]
+        missing_payload = {"columns": nonzero["column"].tolist(), "pct": nonzero["pct_missing"].round(2).tolist()}
+    else:
+        missing_payload = {"columns": [], "pct": []}
+
+    return {
+        "overview": {
+            "n_rows": results["shape"][0],
+            "n_columns": results["shape"][1],
+            "missing_pct": results.get("missing", {}).get("overall_missing_pct", 0.0),
+        },
+        "numeric_columns": numeric_cols,
+        "categorical_columns": categorical_cols,
+        "columns": columns,
+        "correlation": corr_payload,
+        "missing": missing_payload,
+    }
+
+
+def build_dashboard(results: dict[str, Any], path: Path, config: EDAConfig | None = None) -> Path:
+    cfg = config or EDAConfig()
+    payload = _build_payload(results, cfg)
+    html = _TEMPLATE.format(title=cfg.title, data_json=json.dumps(to_serializable(payload)))
+    path.write_text(html, encoding="utf-8")
+    return path
