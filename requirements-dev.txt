@@ -1,0 +1,15 @@
+# Optional dependencies that unlock extra features (mosaic plots, ACF/PACF,
+# correlation networks, UMAP, parquet/feather I/O). Everything in omni_eda
+# degrades gracefully without these -- install only what you need.
+statsmodels>=0.13
+networkx>=2.8
+umap-learn>=0.5
+pyarrow>=10.0
+
+# Development / testing
+pytest>=7.4
+pytest-cov>=4.1
+black>=23.9
+ruff>=0.1
+mypy>=1.6
+pre-commit>=3.5
