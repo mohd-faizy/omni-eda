@@ -1,3 +1,14 @@
+<div align="center">
+  <img src="assets/omni-eda-banner.png" alt="omni_eda Banner">
+</div>
+
+<p align="center">
+  <a href="https://github.com/mohd-faizy/omni-eda/actions/workflows/ci.yml"><img src="https://github.com/mohd-faizy/omni-eda/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
+  <a href="https://pypi.org/project/omni-eda/"><img src="https://img.shields.io/pypi/v/omni-eda.svg" alt="PyPI Version"></a>
+  <a href="https://pypi.org/project/omni-eda/"><img src="https://img.shields.io/pypi/pyversions/omni-eda.svg" alt="Python Versions"></a>
+  <a href="https://github.com/mohd-faizy/omni-eda/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohd-faizy/omni-eda.svg" alt="License"></a>
+</p>
+
 # omni_eda
 
 **Fully automated, production-grade Exploratory Data Analysis for any pandas DataFrame.**
@@ -220,23 +231,23 @@ omni_eda/
 ├── config.py                # EDAConfig dataclass (every tunable setting)
 ├── loaders.py                # CSV/Excel/Parquet/Feather/JSON/SQL/folder loading
 ├── detection.py               # column type & semantic-role detection
-├── statistics.py                # descriptive statistics per dtype
-├── cleaning.py                    # optional, auditable cleaning operations
-├── quality.py                      # data quality issue detection
-├── correlation.py                   # Pearson/Spearman/Kendall/Cramer's V/MI/distance corr
-├── outliers.py                       # Z-score/IQR/Isolation Forest/LOF/DBSCAN/Elliptic Env.
-├── missing.py                         # missing-value analysis & visualization
-├── visualization.py                    # ~40 plot functions + the PlotEngine orchestrator
-├── feature_engineering.py               # rule-based feature suggestions
-├── target_analysis.py                    # class imbalance, tests, importance, ROC/PR/lift
-├── themes.py                              # matplotlib/seaborn/report color themes
-├── report.py                               # HTML/Markdown/console report builder (Jinja2)
-├── export.py                                # HTML/MD/JSON/Excel/PDF/CSV/figure export
-├── dashboard.py                              # self-contained interactive HTML dashboard
-├── logger.py                                  # package-wide logging + progress bars
-├── utils.py                                    # shared helpers (sampling, caching, ...)
-├── cli.py                                       # `omni-eda` command-line interface
-└── templates/report.html.j2                      # the HTML report template
+├── statistics.py               # descriptive statistics per dtype
+├── cleaning.py                   # optional, auditable cleaning operations
+├── quality.py                     # data quality issue detection
+├── correlation.py                  # Pearson/Spearman/Kendall/Cramer's V/MI/distance corr
+├── outliers.py                      # Z-score/IQR/Isolation Forest/LOF/DBSCAN/Elliptic Env.
+├── missing.py                        # missing-value analysis & visualization
+├── visualization.py                   # ~40 plot functions + the PlotEngine orchestrator
+├── feature_engineering.py              # rule-based feature suggestions
+├── target_analysis.py                   # class imbalance, tests, importance, ROC/PR/lift
+├── themes.py                             # matplotlib/seaborn/report color themes
+├── report.py                              # HTML/Markdown/console report builder (Jinja2)
+├── export.py                               # HTML/MD/JSON/Excel/PDF/CSV/figure export
+├── dashboard.py                             # self-contained interactive HTML dashboard
+├── logger.py                                 # package-wide logging + progress bars
+├── utils.py                                   # shared helpers (sampling, caching, ...)
+├── cli.py                                      # `omni-eda` command-line interface
+└── templates/report.html.j2                     # the HTML report template
 ```
 
 Every pipeline stage in `OmniEDA.run()` is wrapped so a failure in one stage (an exotic dtype
