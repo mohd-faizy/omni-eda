@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omni-eda"
+version = "0.1.1"
+description = "Fully automated, production-grade Exploratory Data Analysis for any pandas DataFrame."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "omni_eda contributors" },
+]
+keywords = [
+    "eda", "exploratory data analysis", "pandas", "data profiling",
+    "data quality", "data visualization", "data science", "machine learning",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "pandas>=1.5",
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "matplotlib>=3.6",
+    "seaborn>=0.12",
+    "scikit-learn>=1.1",
+    "jinja2>=3.1",
+    "tqdm>=4.64",
+    "openpyxl>=3.0",
+    "xlsxwriter>=3.0",
+    "Pillow>=9.0",
+]
+
+[project.optional-dependencies]
+# Extra, heavier libraries that unlock a handful of additional plots/checks;
+# every feature that needs them degrades gracefully (skips, with a log
+# message) when they aren't installed.
+extra = [
+    "statsmodels>=0.13",   # mosaic plots, ACF/PACF
+    "networkx>=2.8",       # correlation network graphs
+    "umap-learn>=0.5",     # UMAP projection
+    "pyarrow>=10.0",       # parquet / feather I/O
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "black>=23.9",
+    "ruff>=0.1",
+    "mypy>=1.6",
+    "pre-commit>=3.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/mohd-faizy/omni-eda"
+Documentation = "https://github.com/mohd-faizy/omni-eda#readme"
+Repository = "https://github.com/mohd-faizy/omni-eda"
+Issues = "https://github.com/mohd-faizy/omni-eda/issues"
+
+[project.scripts]
+omni-eda = "omni_eda.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["omni_eda*"]
+
+[tool.setuptools.package-data]
+omni_eda = ["templates/*.j2", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore:invalid value encountered.*:RuntimeWarning",
+    "ignore:All-NaN slice encountered:RuntimeWarning",
+]
+
+[tool.black]
+line-length = 130
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_unused_ignores = false
+no_implicit_optional = true
