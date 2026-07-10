@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/omni-eda-banner.png" alt="omni_eda Banner" width="400">
+  <img src="assets/omni-eda-banner.png" alt="omni_eda Banner" width="450">
 </div>
 
 <p align="center">
