@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/omni-eda-banner.png" alt="omni_eda Banner">
+  <img src="assets/omni-eda-banner.png" alt="omni_eda Banner" width="400">
 </div>
 
 <p align="center">
@@ -45,43 +45,21 @@ OmniEDA("data.csv").generate_report("report.html")
 
 ## Features
 
-- **Broad input support** — CSV/TSV, Excel, Parquet, Feather, JSON/JSONL, SQL (via a
-  SQLAlchemy connection), an in-memory DataFrame, a folder of files, or a chunked CSV reader
-  for datasets too big to fit in memory at once.
-- **Automatic column profiling** — numeric / categorical / datetime / boolean / text / ID
-  columns, plus semantic detection of emails, URLs, phone numbers, currencies, percentages,
-  coordinates, ZIP codes, country/state/city columns, binary/label/ordinal-encoded columns,
-  constant & high-cardinality columns, and mixed-dtype columns.
-- **Data quality report** — missing values, duplicate rows/columns, infinities, impossible
-  negatives, invalid/future dates, empty & whitespace-only strings, hidden/non-printable
-  characters, encoding issues, skewed distributions, class imbalance, highly correlated
-  columns, and target-leakage candidates.
-- **Descriptive statistics** for every dtype — mean/median/mode/std/MAD/IQR/percentiles/
-  skewness/kurtosis for numeric columns; frequency/entropy/rare-category detection for
-  categoricals; length/word/character stats for free text; range/seasonality for datetimes.
-- **~40 plot types** across univariate, bivariate, multivariate, and time-series analysis
-  (histogram/KDE, boxplot, violin, ECDF, Q-Q, rank, lollipop, pie, scatter, hexbin,
-  regression, residual, joint, pairplot, mosaic, cross-tab heatmap, FacetGrid, cluster map,
-  parallel coordinates, Andrews curves, radar chart, bubble chart, 3D scatter, PCA/t-SNE/UMAP,
-  correlation network, trend, seasonality, rolling mean/std, lag plots, ACF/PACF, and more) —
-  each one is skipped automatically when it wouldn't make sense for the data at hand.
-- **Correlation & association analysis** — Pearson/Spearman/Kendall, Cramer's V, correlation
-  ratio (categorical ↔ numeric), mutual information, and distance correlation.
-- **Outlier detection** — Z-score, modified Z-score, IQR, Isolation Forest, Local Outlier
-  Factor, Elliptic Envelope, and DBSCAN.
-- **Feature engineering suggestions** — encoding, scaling, log/power transforms, binning,
-  datetime decomposition, interaction & polynomial feature candidates, redundant-feature and
-  rare-category flags.
-- **Target analysis** — class imbalance, ANOVA / chi-square association tests, Random-Forest
-  feature importance + mutual information, and (for binary targets) a baseline classifier with
-  ROC, Precision-Recall, and lift charts.
-- **Multi-format export** — HTML report, Markdown, JSON, Excel workbook, PDF (figure bundle),
-  raw PNG/SVG figures, CSV tables, and a self-contained interactive HTML dashboard.
-- **Built for scale** — sampling guards, vectorized pandas/NumPy operations, optional
-  multiprocessing, memory-aware dtype downcasting, and defensive handling of empty, single-row,
-  single-column, and all-null-column datasets.
-- **Optional, auditable cleaning** — every cleaning step is opt-in, logged, and returns a new
-  DataFrame; nothing is changed silently.
+| Feature / Capability | Description & Details |
+| :--- | :--- |
+| **Broad Input Support** | CSV/TSV, Excel, Parquet, Feather, JSON/JSONL, SQL (via SQLAlchemy connection), in-memory DataFrames, folders of files, or chunked CSV reader for datasets exceeding memory. |
+| **Automatic Column Profiling** | Profiling for numeric, categorical, datetime, boolean, text, and ID columns. Semantic detection of emails, URLs, phone numbers, currencies, percentages, coordinates, ZIP codes, country/state/city columns, binary/label/ordinal-encoded columns, constant/high-cardinality columns, and mixed-dtype columns. |
+| **Data Quality Report** | Detection of missing values, duplicate rows/columns, infinities, impossible negatives, invalid/future dates, empty/whitespace-only strings, hidden/non-printable characters, encoding issues, skewed distributions, class imbalance, highly correlated columns, and target-leakage candidates. |
+| **Descriptive Statistics** | Mean/median/mode/std/MAD/IQR/percentiles/skewness/kurtosis for numeric columns; frequency/entropy/rare-category detection for categoricals; length/word/character stats for free text; range/seasonality for datetimes. |
+| **~40 Plot Types** | Univariate, bivariate, multivariate, and time-series analysis (histograms/KDE, boxplots, violin, ECDF, Q-Q, rank, lollipop, pie, scatter, hexbin, regression, residual, joint, pairplots, mosaic, cross-tab heatmaps, FacetGrid, cluster maps, parallel coordinates, Andrews curves, radar, bubble, 3D scatter, PCA/t-SNE/UMAP, correlation networks, trend, seasonality, rolling mean/std, lag plots, ACF/PACF, etc.). Plotting is skipped automatically when it wouldn't make sense. |
+| **Correlation & Association** | Pearson/Spearman/Kendall, Cramer's V, correlation ratio (categorical ↔ numeric), mutual information, and distance correlation. |
+| **Outlier Detection** | Z-score, modified Z-score, IQR, Isolation Forest, Local Outlier Factor, Elliptic Envelope, and DBSCAN. |
+| **Feature Engineering Suggestions** | Encoding, scaling, log/power transforms, binning, datetime decomposition, interaction & polynomial feature candidates, redundant-feature and rare-category flags. |
+| **Target Analysis** | Class imbalance, ANOVA / chi-square association tests, Random-Forest feature importance + mutual information, and (for binary targets) a baseline classifier with ROC, Precision-Recall, and lift charts. |
+| **Multi-Format Export** | HTML report, Markdown, JSON, Excel workbook, PDF (figure bundle), raw PNG/SVG figures, CSV tables, and a self-contained interactive HTML dashboard. |
+| **Built for Scale** | Sampling guards, vectorized pandas/NumPy operations, optional multiprocessing, memory-aware dtype downcasting, and defensive handling of empty, single-row, single-column, and all-null-column datasets. |
+| **Optional, Auditable Cleaning** | Every cleaning step is opt-in, logged, and returns a new DataFrame; nothing is changed silently. |
+
 
 ## Installation
 
