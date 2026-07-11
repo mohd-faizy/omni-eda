@@ -42,7 +42,7 @@ from omni_eda.report import ReportBuilder, build_console_summary
 from omni_eda.utils import sample_df
 from omni_eda.visualization import PlotEngine
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 DataSource = Union[str, Path, pd.DataFrame]
 
