@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omni-eda"
-version = "0.2.2"
+version = "0.2.3"
 description = "Fully automated exploratory data analysis for pandas DataFrames."
 readme = "README.md"
 requires-python = ">=3.9"

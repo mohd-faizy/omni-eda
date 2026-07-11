@@ -7,7 +7,23 @@ from typing import Any, Union
 
 import pandas as pd
 
-from omni_eda import cleaning, correlation, feature_engineering, loaders, missing, outliers, quality, statistics, target_analysis, insights, ab_testing, clustering, drift, timeseries, statistical_tests
+from omni_eda import (
+    cleaning,
+    correlation,
+    feature_engineering,
+    loaders,
+    missing,
+    outliers,
+    quality,
+    statistics,
+    target_analysis,
+    insights,
+    ab_testing,
+    clustering,
+    drift,
+    timeseries,
+    statistical_tests,
+)
 from omni_eda.config import EDAConfig
 from omni_eda.detection import ColumnTypeDetector
 from omni_eda.export import export_all
@@ -16,7 +32,7 @@ from omni_eda.report import ReportBuilder, build_console_summary
 from omni_eda.utils import sample_df
 from omni_eda.visualization import PlotEngine
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 DataSource = Union[str, Path, pd.DataFrame]
 
@@ -152,7 +168,7 @@ class OmniEDA:
                 correlation_findings=results["correlation"].get("high_correlation_pairs"),
                 target_leakage_findings=results["correlation"].get("target_leakage"),
             )
-            
+
         with stage(self.logger, "Computing dataset health score and memory analysis"):
             results["health_score"] = quality.compute_health_score(df, profiles, results["quality"])
             results["memory_analysis"] = quality.compute_memory_analysis(df, profiles)
@@ -162,13 +178,13 @@ class OmniEDA:
         if cfg.treatment_column:
             with stage(self.logger, f"Running A/B tests on treatment column '{cfg.treatment_column}'"):
                 results["ab_testing"] = ab_testing.run_ab_test(df, profiles, cfg)
-                
+
         with stage(self.logger, "Detecting time series change points"):
             results["timeseries_changepoints"] = timeseries.detect_changepoints(df, profiles, cfg)
 
         # ---- 6.7 Statistical tests -------------------------------------------
         results["statistical_tests"] = None
-        if getattr(cfg, 'enable_statistical_tests', True):
+        if getattr(cfg, "enable_statistical_tests", True):
             with stage(self.logger, "Running automated statistical tests"):
                 results["statistical_tests"] = statistical_tests.run_all_tests(df, profiles, cfg)
 
@@ -198,7 +214,10 @@ class OmniEDA:
             )
         with stage(self.logger, "Generating automated insights"):
             results["insights"] = insights.generate_insights(
-                df, profiles, results["statistics"], results["quality"], 
+                df,
+                profiles,
+                results["statistics"],
+                results["quality"],
                 health_score=results.get("health_score"),
                 missing_analysis=results.get("missing"),
                 correlation=results.get("correlation"),
@@ -218,31 +237,31 @@ class OmniEDA:
         n_issues = results["quality"].summary.get("n_issues", 0)
         self.logger.info("Run complete: %d columns profiled, %d quality issue(s) found.", len(profiles), n_issues)
         return results
-        
+
     def compare(self, reference_df: pd.DataFrame, current_df: pd.DataFrame) -> dict[str, Any]:
         """Compare two datasets and detect data drift.
-        
+
         Args:
             reference_df: The baseline dataset (e.g. training data)
             current_df: The new dataset (e.g. testing or production data)
-            
+
         Returns:
             A dictionary containing drift metrics (PSI, KS Test) for all features.
         """
         self.logger.info("Starting dataset comparison (drift detection)...")
-        
+
         cfg = self.config
         detector = ColumnTypeDetector(cfg)
-        
+
         # Profile based on reference data
         with stage(self.logger, "Profiling reference dataset for comparison"):
             profiles = detector.profile_dataframe(reference_df)
-            
+
         with stage(self.logger, "Detecting feature drift"):
             drift_results = drift.compare_datasets(reference_df, current_df, profiles, cfg)
-            
+
         self.results["drift"] = drift_results
-        
+
         n_drifted = drift_results.get("n_drifted", 0)
         self.logger.info("Comparison complete: %d feature(s) drifted.", n_drifted)
         return drift_results

@@ -56,6 +56,9 @@ OmniEDA("data.csv").generate_report("report.html")
 | **Outlier Detection** | Z-score, modified Z-score, IQR, Isolation Forest, Local Outlier Factor, Elliptic Envelope, and DBSCAN. |
 | **Feature Engineering Suggestions** | Encoding, scaling, log/power transforms, binning, datetime decomposition, interaction & polynomial feature candidates, redundant-feature and rare-category flags. |
 | **Target Analysis** | Class imbalance, ANOVA / chi-square association tests, Random-Forest feature importance + mutual information, and (for binary targets) a baseline classifier with ROC, Precision-Recall, and lift charts. |
+| **Advanced Statistics & A/B Testing** | Robust statistical tests for group comparisons (A/B testing), hypothesis testing, and deep statistical insights generation. |
+| **Data Drift & Shifts** | Detect distribution shifts between training and serving datasets, monitor feature drift, and ensure data integrity over time. |
+| **Clustering Analysis** | Automated unsupervised learning to discover natural groupings, similarities, and anomalies in the data. |
 | **Multi-Format Export** | HTML report, Markdown, JSON, Excel workbook, PDF (figure bundle), raw PNG/SVG figures, CSV tables, and a self-contained interactive HTML dashboard. |
 | **Built for Scale** | Sampling guards, vectorized pandas/NumPy operations, optional multiprocessing, memory-aware dtype downcasting, and defensive handling of empty, single-row, single-column, and all-null-column datasets. |
 | **Optional, Auditable Cleaning** | Every cleaning step is opt-in, logged, and returns a new DataFrame; nothing is changed silently. |
