@@ -67,7 +67,6 @@ ml = [
     "boruta>=0.3",         # feature selection
 ]
 advanced_stats = [
-    "minepy>=1.2",         # MIC correlation
     "pingouin>=0.5",       # partial correlations, stats power
     "causal-learn>=0.1.3", # causal discovery
     "kneed>=0.8",          # knee point detection for scree plots
