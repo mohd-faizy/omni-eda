@@ -23,7 +23,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel cython
+        pip install setuptools wheel cython numpy
+        pip install --no-build-isolation minepy
         pip install -e .[all]
         pip install flake8 pytest
     - name: Lint with flake8
