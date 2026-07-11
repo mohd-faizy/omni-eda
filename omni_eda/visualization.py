@@ -68,6 +68,35 @@ def plot_histogram_kde(series: pd.Series, name: str) -> Figure | None:
     return fig
 
 
+def plot_distribution_overview(df: pd.DataFrame, numeric_cols: list[str], max_cols: int = 10, max_points: int = 5000) -> Figure | None:
+    cols = numeric_cols[:max_cols]
+    if len(cols) < 2:
+        return None
+    data = df[cols].apply(pd.to_numeric, errors="coerce").dropna(how="all")
+    if data.empty:
+        return None
+    if len(data) > max_points:
+        data = data.sample(max_points, random_state=0)
+    
+    import seaborn as sns
+    from sklearn.preprocessing import StandardScaler
+    
+    # Scale data so all KDEs fit reasonably on one plot
+    scaled = pd.DataFrame(StandardScaler().fit_transform(data), columns=data.columns)
+    
+    fig, ax = _new_fig(figsize=(7, 4.5))
+    for col in cols:
+        if scaled[col].notna().sum() > 2:
+            sns.kdeplot(scaled[col], ax=ax, label=col, fill=True, alpha=0.1, linewidth=1.5)
+            
+    ax.set_title("Distribution Overview (Standardized)")
+    ax.set_xlabel("Standard Deviations from Mean")
+    ax.set_ylabel("Density")
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
 def plot_boxplot(series: pd.Series, name: str) -> Figure | None:
     s = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
     if s.empty:
@@ -104,6 +133,89 @@ def plot_strip(series: pd.Series, name: str, max_points: int = 2000) -> Figure |
     fig, ax = _new_fig(figsize=(4, 5))
     sns.stripplot(y=s, ax=ax, alpha=0.5, size=3)
     ax.set_title(f"Strip plot of {name}")
+    fig.tight_layout()
+    return fig
+
+
+def plot_joyplot(df: pd.DataFrame, num_col: str, cat_col: str, max_categories: int = 10) -> Figure | None:
+    """Create a Ridge Plot (Joyplot) using joypy."""
+    try:
+        import joypy
+    except ImportError:
+        return None
+
+    if num_col not in df.columns or cat_col not in df.columns:
+        return None
+        
+    s_num = pd.to_numeric(df[num_col], errors="coerce")
+    s_cat = df[cat_col].astype(str)
+    
+    valid_mask = s_num.notna() & s_cat.notna() & (s_cat != "") & (s_cat != "nan")
+    clean_df = pd.DataFrame({num_col: s_num[valid_mask], cat_col: s_cat[valid_mask]})
+    
+    if clean_df.empty:
+        return None
+        
+    # Limit categories
+    top_cats = clean_df[cat_col].value_counts().nlargest(max_categories).index
+    clean_df = clean_df[clean_df[cat_col].isin(top_cats)]
+    
+    if clean_df[cat_col].nunique() < 2:
+        return None
+
+    fig, axes = joypy.joyplot(
+        clean_df, 
+        by=cat_col, 
+        column=num_col,
+        figsize=(7, 5),
+        title=f"Joyplot of {num_col} by {cat_col}",
+        colormap=plt.cm.viridis,
+        alpha=0.7,
+        linewidth=1
+    )
+    return fig
+
+
+def plot_raincloud(df: pd.DataFrame, num_col: str, cat_col: str, max_categories: int = 6) -> Figure | None:
+    """Create a Raincloud plot (combination of boxplot, violin, and strip)."""
+    import seaborn as sns
+    
+    if num_col not in df.columns or cat_col not in df.columns:
+        return None
+        
+    s_num = pd.to_numeric(df[num_col], errors="coerce")
+    s_cat = df[cat_col].astype(str)
+    
+    valid_mask = s_num.notna() & s_cat.notna() & (s_cat != "") & (s_cat != "nan")
+    clean_df = pd.DataFrame({num_col: s_num[valid_mask], cat_col: s_cat[valid_mask]})
+    
+    if clean_df.empty:
+        return None
+        
+    # Limit categories
+    top_cats = clean_df[cat_col].value_counts().nlargest(max_categories).index
+    clean_df = clean_df[clean_df[cat_col].isin(top_cats)]
+    
+    if clean_df[cat_col].nunique() < 2:
+        return None
+
+    fig, ax = _new_fig(figsize=(8, 5))
+    
+    # We create a pseudo-raincloud using seaborn
+    sns.violinplot(
+        data=clean_df, x=num_col, y=cat_col, 
+        ax=ax, color="lightgray", inner=None, linewidth=0, alpha=0.3
+    )
+    sns.boxplot(
+        data=clean_df, x=num_col, y=cat_col, 
+        ax=ax, width=0.15, boxprops={'zorder': 2}, color="white"
+    )
+    sns.stripplot(
+        data=clean_df, x=num_col, y=cat_col, 
+        ax=ax, alpha=0.4, size=3, jitter=0.1, zorder=1
+    )
+    
+    ax.set_title(f"Raincloud Plot: {num_col} by {cat_col}")
     fig.tight_layout()
     return fig
 
@@ -796,6 +908,125 @@ def plot_trend(df: pd.DataFrame, date_col: str, value_col: str, max_points: int 
     return fig
 
 
+def plot_pca_biplot(df: pd.DataFrame, numeric_cols: list[str]) -> Figure | None:
+    """Create a PCA Biplot overlaying feature vectors on the scatter."""
+    if len(numeric_cols) < 2:
+        return None
+        
+    data = df[numeric_cols].dropna()
+    if len(data) < 10:
+        return None
+        
+    try:
+        from sklearn.decomposition import PCA
+        from sklearn.preprocessing import StandardScaler
+    except ImportError:
+        return None
+        
+    scaled = StandardScaler().fit_transform(data)
+    pca = PCA(n_components=2)
+    components = pca.fit_transform(scaled)
+    
+    fig, ax = _new_fig(figsize=(8, 6))
+    
+    # Scatter plot
+    ax.scatter(components[:, 0], components[:, 1], alpha=0.3, s=15, color="#4C72B0")
+    
+    # Plot vectors
+    loadings = pca.components_.T * np.sqrt(pca.explained_variance_)
+    
+    # Draw top 5 longest vectors to avoid clutter
+    vector_lengths = np.linalg.norm(loadings, axis=1)
+    top_indices = np.argsort(vector_lengths)[-min(5, len(numeric_cols)):]
+    
+    for i in top_indices:
+        ax.arrow(0, 0, loadings[i, 0]*2.5, loadings[i, 1]*2.5, 
+                 color='#C44E52', alpha=0.8, head_width=0.05, head_length=0.05)
+        ax.text(loadings[i, 0]*2.7, loadings[i, 1]*2.7, 
+                numeric_cols[i], color='#C44E52', ha='center', va='center', fontsize=9)
+                
+    ax.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+    ax.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
+    ax.set_title("PCA Biplot (Feature Loadings)")
+    ax.grid(alpha=0.2)
+    fig.tight_layout()
+    return fig
+
+
+def plot_categorical_network(correlations: pd.DataFrame, threshold: float = 0.3) -> Figure | None:
+    """Create a network graph of categorical associations using Cramer's V."""
+    try:
+        import networkx as nx
+    except ImportError:
+        return None
+        
+    if correlations is None or correlations.empty:
+        return None
+        
+    # Build graph
+    G = nx.Graph()
+    cols = correlations.columns
+    
+    for i in range(len(cols)):
+        for j in range(i+1, len(cols)):
+            weight = correlations.iloc[i, j]
+            if not pd.isna(weight) and weight >= threshold:
+                G.add_edge(cols[i], cols[j], weight=weight)
+                
+    if len(G.edges) == 0:
+        return None
+        
+    fig, ax = _new_fig(figsize=(7, 7))
+    pos = nx.spring_layout(G, k=0.5, seed=42)
+    
+    # Draw edges with varying thickness
+    edges = G.edges()
+    weights = [G[u][v]['weight'] * 3 for u, v in edges]
+    
+    nx.draw_networkx_nodes(G, pos, ax=ax, node_color="#55A868", node_size=1500, alpha=0.8)
+    nx.draw_networkx_edges(G, pos, ax=ax, width=weights, edge_color="gray", alpha=0.5)
+    nx.draw_networkx_labels(G, pos, ax=ax, font_size=9, font_family="sans-serif")
+    
+    ax.set_title(f"Categorical Association Network (Cramer's V ≥ {threshold})")
+    ax.axis("off")
+    fig.tight_layout()
+    return fig
+
+
+def plot_upset_missing(df: pd.DataFrame) -> Figure | None:
+    """Create an UpSet plot to show missing data patterns."""
+    try:
+        from upsetplot import plot as upset_plot
+    except ImportError:
+        return None
+        
+    missing_df = df.isna()
+    if not missing_df.any().any():
+        return None
+        
+    # Only keep columns that have at least one missing value
+    cols_with_missing = missing_df.columns[missing_df.any()]
+    if len(cols_with_missing) < 2:
+        return None
+        
+    # UpSetPlot expects a multi-index series of counts
+    # Group by the boolean missing patterns and count
+    pattern_counts = missing_df[cols_with_missing].groupby(list(cols_with_missing)).size()
+    
+    # Remove the pattern where NOTHING is missing (all False)
+    false_idx = tuple([False] * len(cols_with_missing))
+    if false_idx in pattern_counts.index:
+        pattern_counts = pattern_counts.drop(false_idx)
+        
+    if pattern_counts.empty:
+        return None
+        
+    fig = plt.figure(figsize=(8, 4))
+    upset_plot(pattern_counts, fig=fig, element_size=40, show_counts=True)
+    fig.suptitle("Missing Data Patterns (UpSet Plot)", y=1.05)
+    return fig
+
+
 def plot_seasonality(df: pd.DataFrame, date_col: str, value_col: str) -> Figure | None:
     data = df[[date_col, value_col]].copy()
     data[date_col] = pd.to_datetime(data[date_col], errors="coerce", format="mixed")
@@ -872,6 +1103,204 @@ def plot_acf_pacf(series: pd.Series, name: str, lags: int = 30):
 
 
 # --------------------------------------------------------------------------- #
+# Additional plot functions (Phase 3)
+# --------------------------------------------------------------------------- #
+def plot_kde(series: pd.Series, name: str) -> Figure | None:
+    """Standalone KDE density plot."""
+    s = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+    if s.empty or s.nunique() < 2:
+        return None
+    import seaborn as sns
+
+    fig, ax = _new_fig()
+    sns.kdeplot(s, ax=ax, fill=True, alpha=0.3, linewidth=2)
+    ax.set_title(f"Density (KDE) of {name}")
+    ax.set_xlabel(name)
+    ax.set_ylabel("Density")
+    fig.tight_layout()
+    return fig
+
+
+def plot_density_2d(df: pd.DataFrame, x: str, y: str, max_points: int = 3000) -> Figure | None:
+    """2D density contour plot."""
+    data = df[[x, y]].apply(pd.to_numeric, errors="coerce").dropna()
+    if len(data) < 20:
+        return None
+    if len(data) > max_points:
+        data = data.sample(max_points, random_state=0)
+    import seaborn as sns
+
+    fig, ax = _new_fig()
+    try:
+        sns.kdeplot(data=data, x=x, y=y, ax=ax, fill=True, cmap="Blues", levels=15, alpha=0.7)
+        sns.scatterplot(data=data, x=x, y=y, ax=ax, s=5, alpha=0.2, color="black")
+    except Exception:
+        plt.close(fig)
+        return None
+    ax.set_title(f"2D Density: {y} vs {x}")
+    fig.tight_layout()
+    return fig
+
+
+def plot_boxplot_grouped(
+    df: pd.DataFrame, num_col: str, cat_col: str, max_categories: int = 10
+) -> Figure | None:
+    """Side-by-side boxplots for a numeric column grouped by a categorical column."""
+    import seaborn as sns
+
+    data = df[[num_col, cat_col]].copy()
+    data[num_col] = pd.to_numeric(data[num_col], errors="coerce")
+    data = data.dropna()
+    if data.empty:
+        return None
+
+    top_cats = data[cat_col].value_counts().head(max_categories).index
+    data = data[data[cat_col].isin(top_cats)]
+    if data[cat_col].nunique() < 2:
+        return None
+
+    fig, ax = _new_fig(figsize=(max(6, 0.8 * len(top_cats)), 5))
+    sns.boxplot(data=data, x=cat_col, y=num_col, ax=ax)
+    ax.set_title(f"{num_col} by {cat_col}")
+    ax.tick_params(axis="x", rotation=45)
+    fig.tight_layout()
+    return fig
+
+
+def plot_violin_grouped(
+    df: pd.DataFrame, num_col: str, cat_col: str, max_categories: int = 10
+) -> Figure | None:
+    """Side-by-side violin plots for a numeric column grouped by a categorical column."""
+    import seaborn as sns
+
+    data = df[[num_col, cat_col]].copy()
+    data[num_col] = pd.to_numeric(data[num_col], errors="coerce")
+    data = data.dropna()
+    if data.empty:
+        return None
+
+    top_cats = data[cat_col].value_counts().head(max_categories).index
+    data = data[data[cat_col].isin(top_cats)]
+    if data[cat_col].nunique() < 2:
+        return None
+
+    fig, ax = _new_fig(figsize=(max(6, 0.8 * len(top_cats)), 5))
+    sns.violinplot(data=data, x=cat_col, y=num_col, ax=ax, inner="quartile")
+    ax.set_title(f"Violin: {num_col} by {cat_col}")
+    ax.tick_params(axis="x", rotation=45)
+    fig.tight_layout()
+    return fig
+
+
+def plot_feature_importance_bar(importance_data: list[dict], max_features: int = 20) -> Figure | None:
+    """Horizontal bar chart of feature importances."""
+    if not importance_data:
+        return None
+    data = sorted(importance_data, key=lambda d: d.get("importance_rf", 0), reverse=True)[:max_features]
+    if not data:
+        return None
+
+    features = [d.get("feature", "") for d in data]
+    importances = [d.get("importance_rf", 0) for d in data]
+
+    fig, ax = _new_fig(figsize=(7, max(4, 0.35 * len(features))))
+    y_pos = range(len(features))
+    ax.barh(y_pos, importances, color="#4C72B0", alpha=0.8)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(features, fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlabel("Importance")
+    ax.set_title("Feature Importance (Random Forest)")
+    fig.tight_layout()
+    return fig
+
+
+def plot_correlation_bar(matrix: pd.DataFrame, target: str, max_features: int = 20) -> Figure | None:
+    """Sorted bar chart of correlations with a target column."""
+    if matrix is None or matrix.empty or target not in matrix.columns:
+        return None
+
+    corr_with_target = matrix[target].drop(target, errors="ignore").dropna().sort_values()
+    if corr_with_target.empty:
+        return None
+    corr_with_target = corr_with_target.tail(max_features)
+
+    colors = ["#C44E52" if v < 0 else "#4C72B0" for v in corr_with_target.values]
+    fig, ax = _new_fig(figsize=(7, max(4, 0.35 * len(corr_with_target))))
+    ax.barh(range(len(corr_with_target)), corr_with_target.values, color=colors, alpha=0.8)
+    ax.set_yticks(range(len(corr_with_target)))
+    ax.set_yticklabels(corr_with_target.index, fontsize=9)
+    ax.axvline(0, color="black", linewidth=0.8)
+    ax.set_xlabel("Correlation")
+    ax.set_title(f"Correlation with '{target}'")
+    fig.tight_layout()
+    return fig
+
+
+def plot_missing_value_impact(impact: dict[str, float]) -> Figure | None:
+    """Bar chart showing row retention at different missing data thresholds."""
+    if not impact:
+        return None
+    labels = {
+        "drop_any_missing": "Drop any\nmissing",
+        "drop_gt_1_missing": "Allow ≤1\nmissing",
+        "drop_gt_2_missing": "Allow ≤2\nmissing",
+        "drop_gt_3_missing": "Allow ≤3\nmissing",
+        "drop_gt_50pct_missing": "Allow ≤50%\nmissing cols",
+    }
+    names = []
+    values = []
+    for key, label in labels.items():
+        if key in impact:
+            names.append(label)
+            values.append(impact[key])
+
+    if not names:
+        return None
+
+    fig, ax = _new_fig(figsize=(7, 4))
+    bars = ax.bar(names, values, color="#4C72B0", alpha=0.8)
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
+                f"{val:.1f}%", ha="center", va="bottom", fontsize=9)
+    ax.set_ylabel("% Rows Retained")
+    ax.set_title("Impact of Missing Data Strategies")
+    ax.set_ylim(0, 105)
+    fig.tight_layout()
+    return fig
+
+
+def plot_distribution_comparison(
+    df: pd.DataFrame, num_col: str, cat_col: str, max_categories: int = 6, max_points: int = 5000
+) -> Figure | None:
+    """Overlay KDE distributions of a numeric column grouped by a categorical column."""
+    import seaborn as sns
+
+    data = df[[num_col, cat_col]].copy()
+    data[num_col] = pd.to_numeric(data[num_col], errors="coerce")
+    data = data.dropna()
+    if data.empty:
+        return None
+
+    top_cats = data[cat_col].value_counts().head(max_categories).index
+    data = data[data[cat_col].isin(top_cats)]
+    if data[cat_col].nunique() < 2:
+        return None
+    if len(data) > max_points:
+        data = data.sample(max_points, random_state=0)
+
+    fig, ax = _new_fig()
+    for cat_val in top_cats:
+        subset = data[data[cat_col] == cat_val][num_col]
+        if len(subset) > 2:
+            sns.kdeplot(subset, ax=ax, label=str(cat_val), fill=True, alpha=0.15)
+    ax.set_title(f"Distribution of {num_col} by {cat_col}")
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
+# --------------------------------------------------------------------------- #
 # Orchestrator
 # --------------------------------------------------------------------------- #
 class PlotEngine:
@@ -905,6 +1334,7 @@ class PlotEngine:
         for col in progress(numeric_cols, desc="Univariate (numeric)", enabled=cfg.verbose):
             plots = {
                 "histogram_kde": plot_histogram_kde(working[col], col),
+                "kde_density": plot_kde(working[col], col),
                 "boxplot": plot_boxplot(working[col], col),
                 "violin": plot_violin(working[col], col),
                 "ecdf": plot_ecdf(working[col], col),
@@ -937,7 +1367,7 @@ class PlotEngine:
         out: dict[str, str] = {}
         working = sample_df(df, cfg.sample_for_plots, cfg.random_state)
 
-        [c for c, p in profiles.items() if p.is_numeric and not p.is_constant][: cfg.max_cols_for_pairwise]
+        numeric_cols = [c for c, p in profiles.items() if p.is_numeric and not p.is_constant][: cfg.max_cols_for_pairwise]
         categorical_cols = [
             c for c, p in profiles.items() if (p.is_categorical or p.is_boolean) and not p.is_constant and p.n_unique <= 30
         ][: cfg.max_cols_for_pairwise]
@@ -956,7 +1386,7 @@ class PlotEngine:
                     out["cramers_v_heatmap"] = fig
 
         # top correlated numeric pair -> scatter + regression + hexbin + residual
-        top_pairs = (correlations or {}).get("high_correlation_pairs", [])[:3]
+        top_pairs = (correlations or {}).get("high_correlation_pairs", [])[:5]
         for _i, pair in enumerate(top_pairs):
             a, b = pair["col_a"], pair["col_b"]
             if (
@@ -968,6 +1398,7 @@ class PlotEngine:
                     ("regression", plot_regression),
                     ("hexbin", plot_hexbin),
                     ("residual", plot_residual),
+                    ("density_2d", plot_density_2d),
                 ):
                     fig = self._encode(fn(working, a, b))
                     if fig:
@@ -984,6 +1415,40 @@ class PlotEngine:
                 fig = self._encode(fn(working, c1, c2))
                 if fig:
                     out[f"{plot_name}_{c1}_vs_{c2}"] = fig
+                    
+        # Add Joyplots and Rainclouds if we have at least one numeric and one categorical
+        if len(numeric_cols) >= 1 and len(categorical_cols) >= 1:
+            n1 = numeric_cols[0]
+            c1 = categorical_cols[0]
+            
+            fig = self._encode(plot_joyplot(working, n1, c1))
+            if fig:
+                out[f"joyplot_{n1}_by_{c1}"] = fig
+                
+            fig = self._encode(plot_raincloud(working, n1, c1))
+            if fig:
+                out[f"raincloud_{n1}_by_{c1}"] = fig
+
+        # Grouped boxplots, violins, distribution comparisons (numeric × categorical)
+        max_grouped = getattr(cfg, 'max_grouped_plots', 10)
+        n_grouped = 0
+        if len(numeric_cols) >= 1 and len(categorical_cols) >= 1:
+            for num_col in numeric_cols[:5]:
+                for cat_col in categorical_cols[:3]:
+                    if n_grouped >= max_grouped:
+                        break
+                    fig = self._encode(plot_boxplot_grouped(working, num_col, cat_col))
+                    if fig:
+                        out[f"boxplot_{num_col}_by_{cat_col}"] = fig
+                        n_grouped += 1
+                    fig = self._encode(plot_violin_grouped(working, num_col, cat_col))
+                    if fig:
+                        out[f"violin_{num_col}_by_{cat_col}"] = fig
+                        n_grouped += 1
+                    fig = self._encode(plot_distribution_comparison(working, num_col, cat_col))
+                    if fig:
+                        out[f"dist_compare_{num_col}_by_{cat_col}"] = fig
+                        n_grouped += 1
 
         return out
 
@@ -1012,6 +1477,11 @@ class PlotEngine:
             fig = self._encode(plot_pairplot(working, numeric_cols, hue=hue))
             if fig:
                 out["pairplot"] = fig
+                
+        if len(numeric_cols) >= 2:
+            fig = self._encode(plot_distribution_overview(working, numeric_cols))
+            if fig:
+                out["distribution_overview"] = fig
 
         if len(numeric_cols) >= 2 and categorical_cols:
             fig = self._encode(plot_facetgrid(working, numeric_cols[0], categorical_cols[0]))
@@ -1028,6 +1498,11 @@ class PlotEngine:
                 fig = self._encode(plot_correlation_network(matrix, threshold=cfg.high_correlation_threshold * 0.6))
                 if fig:
                     out["correlation_network"] = fig
+                    
+        if correlations and correlations.get("categorical_cramers_v") is not None:
+            fig = self._encode(plot_categorical_network(correlations["categorical_cramers_v"], threshold=0.3))
+            if fig:
+                out["categorical_network"] = fig
 
         if len(numeric_cols) >= 2 and categorical_cols:
             class_col = categorical_cols[0]
@@ -1054,6 +1529,9 @@ class PlotEngine:
             fig = self._encode(plot_pca(working, numeric_cols, hue=hue))
             if fig:
                 out["pca"] = fig
+            fig = self._encode(plot_pca_biplot(working, numeric_cols))
+            if fig:
+                out["pca_biplot"] = fig
             if len(working) <= cfg.max_rows_for_expensive_ops:
                 fig = self._encode(plot_tsne(working, numeric_cols, hue=hue))
                 if fig:
@@ -1103,4 +1581,50 @@ class PlotEngine:
         fig = self._encode(missing_mod.plot_missing_dendrogram(df, self.config))
         if fig:
             out["dendrogram"] = fig
+            
+        # UpSet plot for missing patterns
+        fig = self._encode(plot_upset_missing(df))
+        if fig:
+            out["upset"] = fig
+
+        return out
+
+    def additional_plots(
+        self,
+        df: pd.DataFrame,
+        profiles: dict[str, ColumnProfile],
+        results: dict[str, Any],
+    ) -> dict[str, str]:
+        """Generate extra plots from analysis results (target correlation bar, feature importance, missing impact)."""
+        cfg = self.config
+        out: dict[str, str] = {}
+        working = sample_df(df, cfg.sample_for_plots, cfg.random_state)
+
+        # Missing value impact chart
+        missing_data = results.get("missing", {})
+        impact = missing_data.get("impact", {})
+        if impact:
+            fig = self._encode(plot_missing_value_impact(impact))
+            if fig:
+                out["missing_impact"] = fig
+
+        # Feature importance bar chart (if target analysis available)
+        target_analysis = results.get("target_analysis")
+        if target_analysis and target_analysis.get("feature_importance") is not None:
+            importance_table = target_analysis["feature_importance"]
+            if hasattr(importance_table, 'to_dict'):
+                fig = self._encode(plot_feature_importance_bar(importance_table.to_dict(orient="records")))
+                if fig:
+                    out["feature_importance_bar"] = fig
+
+        # Correlation bar chart with target
+        correlation = results.get("correlation", {})
+        if cfg.target_column and correlation.get("numeric"):
+            primary = cfg.correlation_methods[0] if cfg.correlation_methods else "pearson"
+            matrix = correlation["numeric"].get(primary)
+            if matrix is not None and cfg.target_column in matrix.columns:
+                fig = self._encode(plot_correlation_bar(matrix, cfg.target_column))
+                if fig:
+                    out["correlation_with_target"] = fig
+
         return out

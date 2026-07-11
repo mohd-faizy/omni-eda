@@ -108,17 +108,26 @@ def export_csv_bundle(results: dict[str, Any], output_dir: Path) -> list[Path]:
 def export_excel(results: dict[str, Any], path: Path) -> Path:
     """Export the key result tables as sheets of a single Excel workbook."""
     with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
-        overview = pd.DataFrame(
-            [
-                {
-                    "rows": results["shape"][0],
-                    "columns": results["shape"][1],
-                    "critical_issues": results["quality"].summary.get("n_critical", 0),
-                    "warnings": results["quality"].summary.get("n_warning", 0),
-                }
-            ]
-        )
-        overview.to_excel(writer, sheet_name="Overview", index=False)
+        workbook = writer.book
+        header_format = workbook.add_format({"bold": True, "bg_color": "#D7E4BC", "border": 1})
+        
+        def format_sheet(df, sheet_name):
+            if df.empty: return
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+            worksheet = writer.sheets[sheet_name]
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+                col_len = max([len(str(v)) for v in df[df.columns[col_num]]] + [len(str(value))]) + 2
+                worksheet.set_column(col_num, col_num, min(col_len, 60))
+
+        q_sum = results.get("quality").summary if results.get("quality") else {}
+        overview = pd.DataFrame([{
+            "rows": results["shape"][0],
+            "columns": results["shape"][1],
+            "critical_issues": q_sum.get("n_critical", 0),
+            "warnings": q_sum.get("n_warning", 0),
+        }])
+        format_sheet(overview, "Overview")
 
         stats_rows = []
         for col, col_stats in results.get("statistics", {}).items():
@@ -126,27 +135,27 @@ def export_excel(results: dict[str, Any], path: Path) -> Path:
             row.update({k: v for k, v in col_stats.items() if not isinstance(v, dict)})
             stats_rows.append(row)
         if stats_rows:
-            pd.DataFrame(stats_rows).to_excel(writer, sheet_name="Statistics", index=False)
+            format_sheet(pd.DataFrame(stats_rows), "Statistics")
 
         quality = results.get("quality")
         if quality and quality.issues:
-            pd.DataFrame([i.to_dict() for i in quality.issues]).to_excel(writer, sheet_name="Quality Issues", index=False)
+            format_sheet(pd.DataFrame([i.to_dict() for i in quality.issues]), "Quality Issues")
 
         high_pairs = results.get("correlation", {}).get("high_correlation_pairs", [])
         if high_pairs:
-            pd.DataFrame(high_pairs).to_excel(writer, sheet_name="Correlations", index=False)
+            format_sheet(pd.DataFrame(high_pairs), "Correlations")
 
         outliers_df = results.get("outliers_summary")
         if isinstance(outliers_df, pd.DataFrame) and not outliers_df.empty:
-            outliers_df.to_excel(writer, sheet_name="Outliers", index=False)
+            format_sheet(outliers_df, "Outliers")
 
         suggestions = results.get("suggestions", [])
         if suggestions:
-            pd.DataFrame([s.to_dict() for s in suggestions]).to_excel(writer, sheet_name="Suggestions", index=False)
+            format_sheet(pd.DataFrame([s.to_dict() for s in suggestions]), "Suggestions")
 
         missing_table = results.get("missing", {}).get("summary_table")
         if isinstance(missing_table, pd.DataFrame) and not missing_table.empty:
-            missing_table.to_excel(writer, sheet_name="Missing Values", index=False)
+            format_sheet(missing_table, "Missing Values")
 
     return path
 

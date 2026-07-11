@@ -99,8 +99,54 @@ def plot_missing_dendrogram(df: pd.DataFrame, config: EDAConfig | None = None) -
     return fig
 
 
+def missing_patterns(df: pd.DataFrame, max_patterns: int = 10) -> pd.DataFrame:
+    """Identify the most common combinations of missing columns."""
+    null_df = df.isna()
+    null_cols = null_df.columns[null_df.any()].tolist()
+    if not null_cols:
+        return pd.DataFrame()
+
+    # Create a string representation of the missingness pattern for each row
+    # e.g., 'Age, Cabin'
+    patterns = null_df[null_cols].apply(
+        lambda row: ", ".join([col for col, is_missing in zip(null_cols, row) if is_missing]), axis=1
+    )
+    
+    # Exclude rows with NO missing values from this specific analysis
+    patterns = patterns[patterns != ""]
+    
+    if patterns.empty:
+        return pd.DataFrame()
+
+    counts = patterns.value_counts().head(max_patterns)
+    pcts = counts / len(df) * 100
+
+    return pd.DataFrame({
+        "pattern": counts.index,
+        "n_rows": counts.values,
+        "pct_rows": pcts.values
+    }).reset_index(drop=True)
+
+
+def missing_impact_analysis(df: pd.DataFrame) -> dict[str, float]:
+    """Calculate how many rows would remain if we drop rows with varying levels of missing data."""
+    n = len(df)
+    if n == 0:
+        return {}
+        
+    null_counts = df.isna().sum(axis=1)
+    
+    return {
+        "drop_any_missing": float((null_counts == 0).sum() / n * 100),
+        "drop_gt_1_missing": float((null_counts <= 1).sum() / n * 100),
+        "drop_gt_2_missing": float((null_counts <= 2).sum() / n * 100),
+        "drop_gt_3_missing": float((null_counts <= 3).sum() / n * 100),
+        "drop_gt_50pct_missing": float((null_counts <= (df.shape[1] * 0.5)).sum() / n * 100)
+    }
+
+
 def compute_missing_analysis(df: pd.DataFrame, config: EDAConfig | None = None) -> dict[str, Any]:
-    config or EDAConfig()
+    config = config or EDAConfig()
     summary = missing_summary(df)
     total_cells = df.shape[0] * df.shape[1]
     total_missing = int(summary["n_missing"].sum())
@@ -116,4 +162,7 @@ def compute_missing_analysis(df: pd.DataFrame, config: EDAConfig | None = None) 
         "rows_with_any_missing": rows_with_missing,
         "complete_rows": complete_rows,
         "columns_with_missing": int((summary["n_missing"] > 0).sum()),
+        # --- v0.2 enhancements ---
+        "patterns": missing_patterns(df),
+        "impact": missing_impact_analysis(df),
     }

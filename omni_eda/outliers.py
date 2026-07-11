@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import pandas as pd
 
@@ -181,3 +182,65 @@ def summarize_outliers(
         if rows
         else pd.DataFrame(columns=["column", "method", "n_outliers", "pct_outliers"])
     )
+
+def explain_outliers(
+    df: pd.DataFrame,
+    numeric_cols: list[str],
+    multivariate_results: dict[str, OutlierResult],
+    config: EDAConfig | None = None
+) -> dict[str, Any]:
+    """Provide feature-level explanations for why multivariate outliers were flagged.
+    
+    Returns a dictionary mapping the outlier algorithm to its top flagged rows
+    and the features that deviated the most from the median.
+    """
+    cfg = config or EDAConfig()
+    
+    if not multivariate_results:
+        return {}
+        
+    explanations = {}
+    
+    # Pre-calculate median and MAD for all numeric columns to score deviation
+    matrix = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
+    medians = matrix.median()
+    mads = (matrix - medians).abs().median()
+    
+    # Avoid zero division
+    mads[mads == 0] = 1.0
+
+    for method, result in multivariate_results.items():
+        if result.n_outliers == 0:
+            continue
+            
+        # Get up to 10 outlier rows to explain
+        outlier_indices = result.mask[result.mask].index[:10]
+        method_explanations = []
+        
+        for idx in outlier_indices:
+            row_data = matrix.loc[idx]
+            
+            # Calculate modified z-scores for this row
+            z_scores = (row_data - medians).abs() / mads
+            z_scores = z_scores.sort_values(ascending=False)
+            
+            # Get top 3 features contributing to this being an outlier
+            top_features = z_scores.head(3)
+            
+            reasons = []
+            for feat, z in top_features.items():
+                if pd.notna(z) and z > 2.0:
+                    val = row_data[feat]
+                    med = medians[feat]
+                    direction = "high" if val > med else "low"
+                    reasons.append(f"'{feat}' is unusually {direction} ({val:.2f} vs median {med:.2f})")
+                    
+            if reasons:
+                method_explanations.append({
+                    "row_index": str(idx),
+                    "reasons": reasons
+                })
+                
+        explanations[method] = method_explanations
+        
+    return explanations

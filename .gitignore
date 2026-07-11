@@ -38,7 +38,7 @@ auto_eda_output/
 Thumbs.db
 
 # Secrets / tokens — NEVER commit these
-token.txt
+.secrets
 *.token
 .env
 .env.*

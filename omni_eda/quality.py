@@ -1,4 +1,11 @@
-"""Aggregate every data-quality issue omni_eda can detect into one report."""
+"""Aggregate every data-quality issue omni_eda can detect into one report.
+
+v0.2 enhancements
+-----------------
+- Dataset Health Score (0-100)
+- Memory optimization suggestions
+- Data type recommendations
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,7 @@ import pandas as pd
 
 from omni_eda.config import EDAConfig
 from omni_eda.detection import ColumnProfile, detect_hidden_characters
-from omni_eda.utils import find_duplicate_columns
+from omni_eda.utils import find_duplicate_columns, human_bytes
 
 
 @dataclass
@@ -250,6 +257,188 @@ def _check_structural_issues(
             f"{len(all_null_cols)} column(s) are entirely missing: {all_null_cols}.",
             n_columns=len(all_null_cols),
         )
+
+
+# ---------------------------------------------------------------------------
+# v0.2: Memory optimization analysis
+# ---------------------------------------------------------------------------
+def compute_memory_analysis(df: pd.DataFrame, profiles: dict[str, ColumnProfile]) -> dict[str, Any]:
+    """Analyze memory usage and suggest optimizations per column."""
+    current_mem = int(df.memory_usage(deep=True).sum())
+    column_analysis: list[dict[str, Any]] = []
+    total_savings = 0
+
+    for col in df.columns:
+        current_bytes = int(df[col].memory_usage(deep=True))
+        current_dtype = str(df[col].dtype)
+        recommended_dtype = current_dtype
+        savings = 0
+
+        profile = profiles.get(col)
+        if profile is None:
+            continue
+
+        # Integer downcast
+        if pd.api.types.is_integer_dtype(df[col]):
+            s = df[col].dropna()
+            if not s.empty:
+                mn, mx = s.min(), s.max()
+                if mn >= 0 and mx <= 255:
+                    recommended_dtype = "uint8"
+                elif mn >= -128 and mx <= 127:
+                    recommended_dtype = "int8"
+                elif mn >= 0 and mx <= 65535:
+                    recommended_dtype = "uint16"
+                elif mn >= -32768 and mx <= 32767:
+                    recommended_dtype = "int16"
+                elif mn >= 0 and mx <= 4294967295:
+                    recommended_dtype = "uint32"
+                elif mn >= -2147483648 and mx <= 2147483647:
+                    recommended_dtype = "int32"
+
+        # Float downcast
+        elif pd.api.types.is_float_dtype(df[col]):
+            if current_dtype == "float64":
+                s = df[col].dropna()
+                if not s.empty:
+                    # Check if all values fit in float32 without significant loss
+                    as_f32 = s.astype(np.float32)
+                    if np.allclose(s.values, as_f32.values, rtol=1e-5, equal_nan=True):
+                        recommended_dtype = "float32"
+
+        # Object -> category for low-cardinality
+        elif df[col].dtype == object:
+            n_unique = df[col].nunique(dropna=True)
+            if n_unique > 0 and n_unique / len(df) < 0.5:
+                recommended_dtype = "category"
+
+        # Estimate savings
+        if recommended_dtype != current_dtype:
+            try:
+                new_bytes = int(df[col].astype(recommended_dtype).memory_usage(deep=True))
+                savings = current_bytes - new_bytes
+                if savings < 0:
+                    savings = 0
+                    recommended_dtype = current_dtype  # revert if no actual savings
+            except Exception:
+                recommended_dtype = current_dtype
+                savings = 0
+
+        total_savings += savings
+        column_analysis.append({
+            "column": col,
+            "current_dtype": current_dtype,
+            "recommended_dtype": recommended_dtype,
+            "current_bytes": current_bytes,
+            "savings_bytes": savings,
+            "can_optimize": recommended_dtype != current_dtype,
+        })
+
+    optimized_mem = current_mem - total_savings
+
+    return {
+        "current_memory_bytes": current_mem,
+        "current_memory_human": human_bytes(current_mem),
+        "optimized_memory_bytes": optimized_mem,
+        "optimized_memory_human": human_bytes(optimized_mem),
+        "total_savings_bytes": total_savings,
+        "total_savings_human": human_bytes(total_savings),
+        "savings_pct": round(total_savings / current_mem * 100, 1) if current_mem > 0 else 0.0,
+        "columns": column_analysis,
+        "n_optimizable": sum(1 for c in column_analysis if c["can_optimize"]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# v0.2: Dataset Health Score
+# ---------------------------------------------------------------------------
+def compute_health_score(
+    df: pd.DataFrame,
+    profiles: dict[str, ColumnProfile],
+    quality_report: QualityReport,
+) -> dict[str, Any]:
+    """Compute a 0-100 health score for the dataset.
+
+    The score is a weighted combination of several quality dimensions:
+    - Completeness (30%): Inverse of overall missing percentage
+    - Consistency (20%): Penalty for mixed types, duplicates, encoding issues
+    - Validity (20%): Penalty for critical quality issues
+    - Uniqueness (15%): Penalty for excessive duplicate rows
+    - Accuracy (15%): Penalty for suspicious patterns (impossible values, outliers)
+    """
+    n_rows, n_cols = df.shape
+
+    # --- Completeness (30%) ---
+    total_cells = n_rows * n_cols
+    total_missing = int(df.isna().sum().sum())
+    missing_pct = (total_missing / total_cells * 100) if total_cells > 0 else 0.0
+    # 0% missing → 100, 50% missing → 50, 100% missing → 0
+    completeness = max(0.0, 100.0 - missing_pct)
+
+    # --- Consistency (20%) ---
+    n_mixed = sum(1 for p in profiles.values() if p.is_mixed_type)
+    n_encoding = len([i for i in quality_report.issues if i.category in ("encoding_issue", "hidden_characters")])
+    consistency_penalties = min(100.0, (n_mixed * 15) + (n_encoding * 10))
+    consistency = max(0.0, 100.0 - consistency_penalties)
+
+    # --- Validity (20%) ---
+    n_critical = len(quality_report.by_severity("critical"))
+    n_warning = len(quality_report.by_severity("warning"))
+    validity_penalties = min(100.0, (n_critical * 20) + (n_warning * 5))
+    validity = max(0.0, 100.0 - validity_penalties)
+
+    # --- Uniqueness (15%) ---
+    n_dup_rows = int(df.duplicated().sum())
+    dup_pct = (n_dup_rows / n_rows * 100) if n_rows > 0 else 0.0
+    uniqueness = max(0.0, 100.0 - dup_pct * 2)  # 50% duplicates → 0
+
+    # --- Accuracy (15%) ---
+    n_impossible = len([i for i in quality_report.issues if i.category in ("impossible_values", "infinite_values")])
+    n_constant = sum(1 for p in profiles.values() if p.is_constant)
+    accuracy_penalties = min(100.0, (n_impossible * 15) + (n_constant * 5))
+    accuracy = max(0.0, 100.0 - accuracy_penalties)
+
+    # Weighted total
+    score = (
+        completeness * 0.30
+        + consistency * 0.20
+        + validity * 0.20
+        + uniqueness * 0.15
+        + accuracy * 0.15
+    )
+    score = round(min(100.0, max(0.0, score)), 1)
+
+    # Grade
+    if score >= 90:
+        grade, label = "A", "Excellent"
+    elif score >= 75:
+        grade, label = "B", "Good"
+    elif score >= 60:
+        grade, label = "C", "Fair"
+    elif score >= 40:
+        grade, label = "D", "Poor"
+    else:
+        grade, label = "F", "Critical"
+
+    return {
+        "score": score,
+        "grade": grade,
+        "label": label,
+        "dimensions": {
+            "completeness": round(completeness, 1),
+            "consistency": round(consistency, 1),
+            "validity": round(validity, 1),
+            "uniqueness": round(uniqueness, 1),
+            "accuracy": round(accuracy, 1),
+        },
+        "weights": {
+            "completeness": 0.30,
+            "consistency": 0.20,
+            "validity": 0.20,
+            "uniqueness": 0.15,
+            "accuracy": 0.15,
+        },
+    }
 
 
 def build_quality_report(

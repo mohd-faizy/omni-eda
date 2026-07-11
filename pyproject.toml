@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omni-eda"
-version = "0.1.1"
-description = "Fully automated, production-grade Exploratory Data Analysis for any pandas DataFrame."
+version = "0.2.2"
+description = "Fully automated exploratory data analysis for pandas DataFrames."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
@@ -55,6 +55,10 @@ extra = [
     "networkx>=2.8",       # correlation network graphs
     "umap-learn>=0.5",     # UMAP projection
     "pyarrow>=10.0",       # parquet / feather I/O
+    "joypy>=0.2.6",        # joyplots (ridge plots)
+    "upsetplot>=0.8.0",    # upset plots for missing data
+    "ruptures>=1.1.8",     # time series change point detection
+    "weasyprint>=61.0",    # HTML to PDF export
 ]
 dev = [
     "pytest>=7.4",

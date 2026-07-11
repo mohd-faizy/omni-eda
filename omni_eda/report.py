@@ -101,9 +101,27 @@ class ReportBuilder:
             "bivariate_plots": results.get("bivariate_plots", {}),
             "multivariate_plots": results.get("multivariate_plots", {}),
             "timeseries_plots": results.get("timeseries_plots", {}),
+            "additional_plots": results.get("additional_plots", {}),
             "target_analysis": target_analysis,
+            "health_score": results.get("health_score"),
+            "memory_analysis": results.get("memory_analysis"),
+            "insights": [i.to_dict() for i in results.get("insights", [])] if results.get("insights") else [],
             "suggestions": [s.to_dict() for s in results.get("suggestions", [])],
+            "ab_testing": results.get("ab_testing"),
+            "drift": results.get("drift"),
+            "hopkins_statistic": results.get("hopkins_statistic"),
+            "timeseries_changepoints": results.get("timeseries_changepoints"),
+            "outlier_explanations": results.get("outlier_explanations", {}),
             "final_summary": build_final_summary(results),
+            # --- v0.3 additions ---
+            "dataset_summary": results.get("dataset_summary", {}),
+            "numeric_summary_table": results.get("numeric_summary_table", []),
+            "categorical_summary_table": results.get("categorical_summary_table", []),
+            "quality_scorecard": results.get("quality_scorecard", []),
+            "statistical_tests": results.get("statistical_tests"),
+            "data_sample_head": _df_to_records_safe(results.get("df_head")),
+            "data_sample_tail": _df_to_records_safe(results.get("df_tail")),
+            "data_sample_columns": results.get("df_columns", []),
         }
 
     # ------------------------------------------------------------------ #
@@ -164,30 +182,66 @@ def build_console_summary(results: dict[str, Any]) -> str:
 
 
 def build_markdown_report(results: dict[str, Any], config: EDAConfig | None = None, version: str = "0.1.0") -> str:
+    """Comprehensive markdown report matching the HTML report structure."""
     cfg = config or EDAConfig()
     shape = results["shape"]
     quality = results["quality"]
     profiles = results["profiles"]
-    results["statistics"]
+    stats = results["statistics"]
 
     lines: list[str] = [
         f"# {cfg.title}",
         "",
         f"_Generated {_dt.datetime.now().strftime('%Y-%m-%d %H:%M')} by omni_eda v{version}_",
         "",
+        "Built by [GitHub](https://github.com/mohd-faizy) | [Mohd Faizy](https://mohdfaizy.vercel.app/)",
+        "",
     ]
 
+    # --- 1. Executive Summary ---
+    lines += ["## 1. Executive Summary", ""]
+    health = results.get("health_score")
+    if health:
+        lines.append(f"**Dataset Health Score:** {health['score']}/100 (Grade: {health['grade']} — {health['label']})")
+        lines.append("")
+    lines.append(build_final_summary(results))
+    lines.append("")
+
+    # Top insights
+    all_insights = results.get("insights", [])
+    top_insights = [i for i in all_insights if i.severity in ("highlight", "warning")][:5] if all_insights else []
+    if top_insights:
+        lines.append("**Key Findings:**")
+        for ins in top_insights:
+            lines.append(f"- **{ins.title}**: {ins.description}")
+        lines.append("")
+
+    # --- 2. Dataset Overview ---
+    lines += ["## 2. Dataset Overview", ""]
     lines += [
-        "## Overview",
-        "",
         f"- Rows: **{shape[0]:,}**",
         f"- Columns: **{shape[1]}**",
         f"- Memory usage: **{human_bytes(quality.summary.get('memory_usage_bytes', 0))}**",
-        f"- Critical issues: **{quality.summary.get('n_critical', 0)}**, Warnings: **{quality.summary.get('n_warning', 0)}**",
         "",
     ]
 
-    lines += ["## Data Quality Issues", ""]
+    # Type breakdown
+    type_counts: dict[str, int] = {}
+    for profile in profiles.values():
+        type_counts[profile.base_type] = type_counts.get(profile.base_type, 0) + 1
+    if type_counts:
+        lines.append("**Column Types:**")
+        for t, c in sorted(type_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"- {t}: {c}")
+        lines.append("")
+
+    # --- 3. Data Quality Assessment ---
+    lines += ["## 3. Data Quality Assessment", ""]
+    lines.append(f"- Critical issues: **{quality.summary.get('n_critical', 0)}**")
+    lines.append(f"- Warnings: **{quality.summary.get('n_warning', 0)}**")
+    lines.append(f"- Info: **{quality.summary.get('n_info', 0)}**")
+    lines.append("")
+
     if quality.issues:
         lines.append("| Severity | Category | Column | Message |")
         lines.append("|---|---|---|---|")
@@ -197,7 +251,40 @@ def build_markdown_report(results: dict[str, Any], config: EDAConfig | None = No
         lines.append("_No issues detected._")
     lines.append("")
 
-    lines += ["## Column Summary", ""]
+    # --- 4. Descriptive Statistics ---
+    lines += ["## 4. Descriptive Statistics", ""]
+
+    # Numeric summary table
+    numeric_table = results.get("numeric_summary_table", [])
+    if numeric_table:
+        lines.append("### Numeric Columns")
+        lines.append("")
+        lines.append("| Column | Count | Missing% | Mean | Std | Min | Median | Max | Skewness | Distribution |")
+        lines.append("|---|---|---|---|---|---|---|---|---|---|")
+        for r in numeric_table:
+            lines.append(
+                f"| {r['column']} | {r['count']} | {r['missing_pct']}% "
+                f"| {_fmt(r['mean'])} | {_fmt(r['std'])} | {_fmt(r['min'])} "
+                f"| {_fmt(r['median'])} | {_fmt(r['max'])} | {_fmt(r['skewness'])} | {r['distribution']} |"
+            )
+        lines.append("")
+
+    # Categorical summary table
+    cat_table = results.get("categorical_summary_table", [])
+    if cat_table:
+        lines.append("### Categorical Columns")
+        lines.append("")
+        lines.append("| Column | Count | Missing% | Unique | Top Value | Top% | Entropy |")
+        lines.append("|---|---|---|---|---|---|---|")
+        for r in cat_table:
+            lines.append(
+                f"| {r['column']} | {r['count']} | {r['missing_pct']}% "
+                f"| {r['n_unique']} | {r.get('top_value', '-')} | {r.get('top_value_pct', '-')}% | {_fmt(r.get('entropy'))} |"
+            )
+        lines.append("")
+
+    # --- 5-7. Column Summary ---
+    lines += ["## 5. Column Summary", ""]
     lines.append("| Column | Type | Semantic | Unique | Missing % |")
     lines.append("|---|---|---|---|---|")
     for name, profile in profiles.items():
@@ -206,10 +293,12 @@ def build_markdown_report(results: dict[str, Any], config: EDAConfig | None = No
         )
     lines.append("")
 
+    # --- 8. Correlation Analysis ---
     correlation = results.get("correlation", {})
     high_pairs = correlation.get("high_correlation_pairs", [])
-    lines += ["## Highly Correlated Pairs", ""]
+    lines += ["## 8. Correlation Analysis", ""]
     if high_pairs:
+        lines.append("### Highly Correlated Pairs")
         lines.append("| Column A | Column B | Value |")
         lines.append("|---|---|---|")
         for p in high_pairs:
@@ -218,8 +307,58 @@ def build_markdown_report(results: dict[str, Any], config: EDAConfig | None = No
         lines.append("_None above the configured threshold._")
     lines.append("")
 
+    # --- 9. Statistical Testing ---
+    stat_tests = results.get("statistical_tests")
+    if stat_tests:
+        lines += ["## 9. Statistical Testing", ""]
+        summary = stat_tests.get("summary", {})
+        lines.append(f"**Total tests run:** {summary.get('total_tests', 0)}")
+        lines.append(f"**Significant results:** {summary.get('n_significant', 0)}")
+        lines.append("")
+
+        all_results_list = stat_tests.get("results", [])
+        sig_results = [r for r in all_results_list if r.get("significant")]
+        if sig_results:
+            lines.append("### Significant Findings")
+            lines.append("")
+            lines.append("| Test | Column(s) | Statistic | p-value | Effect Size | Interpretation |")
+            lines.append("|---|---|---|---|---|---|")
+            for r in sig_results[:20]:
+                cols = r['column_a']
+                if r.get('column_b'):
+                    cols += f" × {r['column_b']}"
+                es = f"{r['effect_size']:.3f} ({r['effect_size_label']})" if r.get('effect_size') else "-"
+                pv = f"{r['p_value']:.4g}" if r.get('p_value', -1) >= 0 else "-"
+                lines.append(f"| {r['test_name']} | {cols} | {r['statistic']:.4f} | {pv} | {es} | {_trunc(r.get('interpretation',''), 80)} |")
+            lines.append("")
+
+    # --- 10-11. Outliers & Missing ---
+    outliers_df = results.get("outliers_summary")
+    if isinstance(outliers_df, pd.DataFrame) and not outliers_df.empty:
+        lines += ["## 11. Outlier Analysis", ""]
+        lines.append(f"Detected outliers across {len(outliers_df)} column-method combinations.")
+        lines.append("")
+
+    missing_data = results.get("missing", {})
+    if missing_data.get("total_missing_cells", 0) > 0:
+        lines += ["## 12. Missing Data Analysis", ""]
+        lines.append(f"- Total missing cells: **{missing_data['total_missing_cells']:,}** ({missing_data.get('overall_missing_pct', 0):.1f}%)")
+        lines.append(f"- Rows with any missing: **{missing_data.get('rows_with_any_missing', 0):,}**")
+        lines.append(f"- Columns with missing: **{missing_data.get('columns_with_missing', 0)}**")
+        lines.append("")
+
+    # --- 13. Key Insights ---
+    if all_insights:
+        lines += ["## 13. Key Insights", ""]
+        for ins in all_insights:
+            icon = {"highlight": "\u2b50", "warning": "\u26a0\ufe0f", "observation": "\U0001f4ca"}.get(ins.severity, "\u2022")
+            lines.append(f"{icon} **{ins.title}**")
+            lines.append(f"   {ins.description}")
+            lines.append("")
+
+    # --- 14. Recommendations ---
     suggestions = results.get("suggestions", [])
-    lines += ["## Feature Engineering Suggestions", ""]
+    lines += ["## 14. Feature Engineering Suggestions", ""]
     if suggestions:
         for s in suggestions:
             col_part = f" (`{s.column}`)" if s.column else ""
@@ -228,9 +367,10 @@ def build_markdown_report(results: dict[str, Any], config: EDAConfig | None = No
         lines.append("_None._")
     lines.append("")
 
+    # --- 15. Target Analysis ---
     target_analysis = results.get("target_analysis")
     if target_analysis:
-        lines += [f"## Target Analysis: `{target_analysis['target']}`", ""]
+        lines += [f"## 15. Target Analysis: `{target_analysis['target']}`", ""]
         if target_analysis.get("class_imbalance"):
             ci = target_analysis["class_imbalance"]
             lines.append(f"Majority class `{ci['majority_class']}` = {ci['majority_pct']:.1f}% of rows.")
@@ -240,11 +380,38 @@ def build_markdown_report(results: dict[str, Any], config: EDAConfig | None = No
             lines.append("")
 
     lines += [
-        "## Summary",
-        "",
-        build_final_summary(results),
+        "---",
         "",
         "> Visualizations are available in the HTML version of this report.",
     ]
 
     return "\n".join(lines)
+
+
+def _df_to_records_safe(df: Any) -> list[dict]:
+    """Convert a DataFrame to list of dicts, safely handling None."""
+    if df is None:
+        return []
+    if isinstance(df, pd.DataFrame):
+        return df.head(5).fillna("").astype(str).to_dict(orient="records")
+    return []
+
+
+def _fmt(value: Any) -> str:
+    """Format a numeric value for markdown tables."""
+    if value is None:
+        return "-"
+    try:
+        f = float(value)
+        if abs(f) >= 1000:
+            return f"{f:,.1f}"
+        return f"{f:.4f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _trunc(text: str, max_len: int = 80) -> str:
+    """Truncate text for table cells."""
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - 1] + "\u2026"

@@ -19,7 +19,7 @@ or, in one line:
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.2"
 
 from omni_eda.analyzer import OmniEDA
 from omni_eda.config import EDAConfig

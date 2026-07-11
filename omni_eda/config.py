@@ -36,6 +36,8 @@ class EDAConfig:
 
     # ---- Column handling --------------------------------------------
     target_column: str | None = None
+    treatment_column: str | None = None
+    ab_metric_columns: Sequence[str] = field(default_factory=list)
     ignore_columns: Sequence[str] = field(default_factory=list)
     id_like_uniqueness_ratio: float = 0.98
     high_cardinality_threshold: int = 50
@@ -85,6 +87,14 @@ class EDAConfig:
     # ---- Target / modelling ----------------------------------------------
     enable_target_modeling: bool = True
     test_size: float = 0.25
+
+    # ---- Statistical testing -----------------------------------------------
+    enable_statistical_tests: bool = True
+    significance_level: float = 0.05
+    max_test_categories: int = 20
+    bootstrap_n_iterations: int = 1000
+    generate_grouped_plots: bool = True
+    max_grouped_plots: int = 10
 
     # ---- Cleaning (opt-in, never runs unless explicitly requested) --------
     auto_clean: bool = False
