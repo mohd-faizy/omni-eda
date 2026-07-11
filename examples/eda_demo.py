@@ -12,8 +12,8 @@ import pandas as pd
 from omni_eda import OmniEDA, EDAConfig
 
 
-def make_churn_dataframe(n: int = 5000, seed: int = 7) -> pd.DataFrame:
-    rng = np.random.default_rng(seed)
+def make_churn_dataframe(n: int = 5000, random_state: int = 42) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
     tenure_months = rng.integers(0, 72, n)
     monthly_charge = rng.normal(70, 25, n).clip(10, None)
     support_tickets = rng.poisson(1.5, n)

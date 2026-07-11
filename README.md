@@ -59,6 +59,8 @@ OmniEDA("data.csv").generate_report("report.html")
 | **Advanced Statistics & A/B Testing** | Robust statistical tests for group comparisons (A/B testing), hypothesis testing, and deep statistical insights generation. |
 | **Data Drift & Shifts** | Detect distribution shifts between training and serving datasets, monitor feature drift, and ensure data integrity over time. |
 | **Clustering Analysis** | Automated unsupervised learning to discover natural groupings, similarities, and anomalies in the data. |
+| **Advanced Intelligence (Phase 2)** | Dataset fingerprinting, information theory (Shannon/KL divergences), intrinsic dimensionality, statistical power analysis, and synthetic data diagnostics. |
+| **Advanced Dependency & Causality** | Causal discovery, Apriori/FP-growth association rules, SHAP-based feature interactions, and maximal information coefficient (MIC) correlations. |
 | **Multi-Format Export** | HTML report, Markdown, JSON, Excel workbook, PDF (figure bundle), raw PNG/SVG figures, CSV tables, and a self-contained interactive HTML dashboard. |
 | **Built for Scale** | Sampling guards, vectorized pandas/NumPy operations, optional multiprocessing, memory-aware dtype downcasting, and defensive handling of empty, single-row, single-column, and all-null-column datasets. |
 | **Optional, Auditable Cleaning** | Every cleaning step is opt-in, logged, and returns a new DataFrame; nothing is changed silently. |

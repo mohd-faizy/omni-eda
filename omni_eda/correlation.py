@@ -13,6 +13,7 @@ from scipy.spatial import distance as scipy_distance
 from omni_eda.config import EDAConfig
 from omni_eda.detection import ColumnProfile
 from omni_eda.utils import sample_df
+from omni_eda.advanced_correlation import AdvancedCorrelation
 
 
 def numeric_correlation_matrices(df: pd.DataFrame, numeric_cols: list[str], methods: list[str]) -> dict[str, pd.DataFrame]:
@@ -180,6 +181,10 @@ def compute_correlations(
         if categorical_cols and numeric_cols
         else pd.DataFrame(),
     }
+    
+    # Advanced nonlinear/partial correlations
+    adv_corr = AdvancedCorrelation(working_df)
+    result["advanced"] = adv_corr.get_report()
 
     high_corr_pairs: list[dict[str, Any]] = []
     primary_method = cfg.correlation_methods[0] if cfg.correlation_methods else "pearson"

@@ -122,6 +122,21 @@ class ReportBuilder:
             "data_sample_head": _df_to_records_safe(results.get("df_head")),
             "data_sample_tail": _df_to_records_safe(results.get("df_tail")),
             "data_sample_columns": results.get("df_columns", []),
+            
+            # --- Phase 1 & 2 additions ---
+            "fingerprint": results.get("fingerprint"),
+            "complexity": results.get("complexity"),
+            "information_theory": results.get("information_theory"),
+            "distribution_diagnostics": results.get("distribution_diagnostics"),
+            "power_analysis": results.get("power_analysis"),
+            "synthetic_diagnostics": results.get("synthetic_diagnostics"),
+            "advanced": results.get("correlation", {}).get("advanced"),
+            "dependencies": results.get("dependencies"),
+            "interactions": results.get("interactions"),
+            "feature_clustering": results.get("feature_clustering"),
+            "sample_clustering": results.get("sample_clustering"),
+            "advanced_anomalies": results.get("advanced_anomalies"),
+            "causal_discovery": results.get("causal_discovery"),
         }
 
     # ------------------------------------------------------------------ #

@@ -182,6 +182,8 @@ def to_serializable(obj: Any) -> Any:
         return int(obj)
     if isinstance(obj, (np.floating,)):
         return None if np.isnan(obj) else float(obj)
+    if isinstance(obj, np.bool_):
+        return bool(obj)
     if isinstance(obj, np.ndarray):
         return to_serializable(obj.tolist())
     if isinstance(obj, (pd.Timestamp,)):

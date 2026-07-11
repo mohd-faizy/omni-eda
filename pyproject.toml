@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omni-eda"
-version = "0.2.3"
+version = "0.3.0"
 description = "Fully automated exploratory data analysis for pandas DataFrames."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -59,6 +59,28 @@ extra = [
     "upsetplot>=0.8.0",    # upset plots for missing data
     "ruptures>=1.1.8",     # time series change point detection
     "weasyprint>=61.0",    # HTML to PDF export
+]
+ml = [
+    "xgboost>=1.7",        # advanced modeling, predictability, interactions
+    "lightgbm>=3.3",       # fast modeling baseline
+    "shap>=0.41",          # explainability
+    "boruta>=0.3",         # feature selection
+]
+advanced_stats = [
+    "minepy>=1.2",         # MIC correlation
+    "pingouin>=0.5",       # partial correlations, stats power
+    "causal-learn>=0.1.3", # causal discovery
+    "kneed>=0.8",          # knee point detection for scree plots
+]
+nlp = [
+    "spacy>=3.5",          # text analytics
+    "textblob>=0.17",      # sentiment
+]
+geo = [
+    "geopandas>=0.12",     # geospatial analytics
+]
+all = [
+    "omni-eda[extra,ml,advanced_stats,nlp,geo]",
 ]
 dev = [
     "pytest>=7.4",

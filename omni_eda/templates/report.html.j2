@@ -303,6 +303,18 @@
     <a href="#outliers">Outliers</a>
     <a href="#bivariate">Bivariate Analysis</a>
     <a href="#multivariate">Multivariate Analysis</a>
+    {% if fingerprint %}<a href="#fingerprint">Dataset Fingerprint</a>{% endif %}
+    {% if complexity %}<a href="#complexity">Dataset Complexity</a>{% endif %}
+    {% if information_theory %}<a href="#information_theory">Information Theory</a>{% endif %}
+    {% if distribution_diagnostics %}<a href="#distribution">Distribution Diagnostics</a>{% endif %}
+    {% if power_analysis %}<a href="#power">Power Analysis</a>{% endif %}
+    {% if synthetic_diagnostics %}<a href="#synthetic">Synthetic Diagnostics</a>{% endif %}
+    {% if advanced %}<a href="#advanced_correlation">Advanced Correlation</a>{% endif %}
+    {% if dependencies %}<a href="#dependency">Dependencies</a>{% endif %}
+    {% if interactions %}<a href="#interaction">Feature Interactions</a>{% endif %}
+    {% if feature_clustering or sample_clustering %}<a href="#clustering">Clustering Analysis</a>{% endif %}
+    {% if advanced_anomalies %}<a href="#anomaly">Ensemble Anomalies</a>{% endif %}
+    {% if causal_discovery %}<a href="#causal">Causal Discovery</a>{% endif %}
     {% if timeseries_plots %}<a href="#timeseries">Time Series</a>{% endif %}
     {% if target_analysis %}<a href="#target">Target Analysis</a>{% endif %}
     {% if hopkins_statistic or ab_testing or drift or timeseries_changepoints %}<a href="#advanced">Advanced Analytics</a>{% endif %}
@@ -531,7 +543,7 @@
     <section id="columns">
       <h2>Column Statistics &amp; Distributions</h2>
       {% for col in columns %}
-      <details class="column-card">
+      <details class="column-card" open>
         <summary>
           <div style="display:flex; align-items:center; gap: 12px;">
             <span>{{ col.name }}</span>
@@ -861,6 +873,8 @@
       <p class="empty-note">No specific suggestions &mdash; the dataset looks clean.</p>
       {% endif %}
     </section>
+
+    {% include 'advanced_sections.j2' %}
 
   </main>
 </div>

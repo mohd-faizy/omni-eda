@@ -1,0 +1,187 @@
+    {% if fingerprint %}
+    <section id="fingerprint">
+      <h2>Dataset Fingerprint & Metadata</h2>
+      <div class="cards">
+        <div class="card"><div class="value">{{ fingerprint.schema_hash[:8] }}</div><div class="label">Schema Hash</div></div>
+        <div class="card"><div class="value">{{ fingerprint.feature_signature[:8] }}</div><div class="label">Feature Signature</div></div>
+        <div class="card"><div class="value">{{ fingerprint.dataset_version_hash[:8] }}</div><div class="label">Version Hash</div></div>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if complexity %}
+    <section id="complexity">
+      <h2>Dataset Complexity</h2>
+      <div class="cards">
+        <div class="card"><div class="value">{{ complexity.effective_rank_95 }}</div><div class="label">Effective Rank (95%)</div></div>
+        <div class="card"><div class="value">{{ '%.3f'|format(complexity.participation_ratio) }}</div><div class="label">Participation Ratio</div></div>
+        <div class="card"><div class="value">{{ '%.3f'|format(complexity.entropy_score) }}</div><div class="label">Entropy Score</div></div>
+        <div class="card"><div class="value">{{ '%.1f'|format(complexity.feature_redundancy * 100) }}%</div><div class="label">Feature Redundancy</div></div>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if information_theory %}
+    <section id="information_theory">
+      <h2>Information Theory</h2>
+      {% if information_theory.entropies %}
+      <div class="table-container">
+        <table>
+          <tr><th>Feature</th><th>Shannon Entropy (bits)</th></tr>
+          {% for feature, ent in information_theory.entropies.items() %}
+          <tr><td><code>{{ feature }}</code></td><td>{{ '%.3f'|format(ent) }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if distribution_diagnostics %}
+    <section id="distribution">
+      <h2>Distribution Diagnostics</h2>
+      <div class="table-container">
+        <table>
+          <tr><th>Feature</th><th>Modality</th><th>Zero Inflated</th><th>Heavy Tailed</th><th>Best Fit Dist</th></tr>
+          {% for feature, diag in distribution_diagnostics.items() %}
+          <tr>
+            <td><code>{{ feature }}</code></td>
+            <td>{{ diag.modality }} {% if diag.n_peaks > 0 %}({{ diag.n_peaks }} peaks){% endif %}</td>
+            <td>{% if diag.zero_inflated %}<span class="badge warning">Yes</span>{% else %}No{% endif %}</td>
+            <td>{% if diag.heavy_tailed %}<span class="badge warning">Yes</span>{% else %}No{% endif %}</td>
+            <td>{% if diag.fit and diag.fit.best_distribution %}{{ diag.fit.best_distribution }} (KS: {{ '%.3f'|format(diag.fit.best_ks_stat) }}){% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if power_analysis %}
+    <section id="power">
+      <h2>Statistical Power Analysis</h2>
+      <div class="table-container">
+        <table>
+          <tr><th>Feature</th><th>95% Bootstrap CI</th><th>Effect Size vs Target</th><th>Req. Sample Size (80% Power)</th></tr>
+          {% for feature, pwr in power_analysis.items() %}
+          <tr>
+            <td><code>{{ feature }}</code></td>
+            <td>[{{ '%.3f'|format(pwr.bootstrap_ci_95.low) }}, {{ '%.3f'|format(pwr.bootstrap_ci_95.high) }}]</td>
+            <td>{% if pwr.effect_size_vs_target %}{{ '%.3f'|format(pwr.effect_size_vs_target) }}{% else %}-{% endif %}</td>
+            <td>{% if pwr.required_sample_size_power_0_8 %}{{ pwr.required_sample_size_power_0_8 }}{% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if synthetic_diagnostics %}
+    <section id="synthetic">
+      <h2>Synthetic Data Diagnostics</h2>
+      <div class="cards">
+        <div class="card"><div class="value">{{ '%.1f'|format(synthetic_diagnostics.uniqueness_ratio * 100) }}%</div><div class="label">Uniqueness</div></div>
+        <div class="card"><div class="value">{{ '%.1f'|format(synthetic_diagnostics.memorization_risk_ratio * 100) }}%</div><div class="label">Memorization Risk</div></div>
+        <div class="card"><div class="value">{{ '%.2f'|format(synthetic_diagnostics.privacy_score) }}</div><div class="label">Privacy Score</div></div>
+        <div class="card"><div class="value">{{ synthetic_diagnostics.synthesis_difficulty }}</div><div class="label">Synthesis Difficulty</div></div>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if advanced and advanced.blomqvist %}
+    <section id="advanced_correlation">
+      <h2>Advanced Correlation</h2>
+      <p>Calculated Blomqvist's Beta, MIC, and Partial correlations (where possible).</p>
+      {% if advanced.mic %}
+        <p><strong>Top MIC pairs:</strong> computed successfully.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if dependencies %}
+    <section id="dependency">
+      <h2>Dependencies & Association Rules</h2>
+      {% if dependencies.tree_dependencies %}
+      <div class="table-container">
+        <table>
+          <tr><th>Predictor</th><th>Target</th><th>Strength</th><th>Type</th></tr>
+          {% for dep in dependencies.tree_dependencies[:10] %}
+          <tr>
+            <td><code>{{ dep['predictor (A)'] }}</code></td>
+            <td><code>{{ dep['target (B)'] }}</code></td>
+            <td>{{ '%.3f'|format(dep.dependency_strength) }}</td>
+            <td>{{ dep.type }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if interactions and interactions.top_2way_interactions_shap %}
+    <section id="interaction">
+      <h2>Feature Interactions (SHAP)</h2>
+      <div class="table-container">
+        <table>
+          <tr><th>Feature A</th><th>Feature B</th><th>Interaction Strength</th></tr>
+          {% for int in interactions.top_2way_interactions_shap %}
+          <tr>
+            <td><code>{{ int.feature_a }}</code></td>
+            <td><code>{{ int.feature_b }}</code></td>
+            <td>{{ '%.4f'|format(int.interaction_strength) }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if feature_clustering or sample_clustering %}
+    <section id="clustering">
+      <h2>Clustering Analysis</h2>
+      {% if sample_clustering %}
+        <div class="cards">
+        {% for name, res in sample_clustering.items() %}
+          <div class="card">
+            <div class="value">{{ '%.3f'|format(res.silhouette_score) }}</div>
+            <div class="label">{{ name }} Silhouette</div>
+          </div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if advanced_anomalies %}
+    <section id="anomaly">
+      <h2>Ensemble Anomaly Detection</h2>
+      {% if advanced_anomalies.ensemble_anomaly_analysis and 'error' not in advanced_anomalies.ensemble_anomaly_analysis %}
+      {% set ens = advanced_anomalies.ensemble_anomaly_analysis %}
+      <div class="cards">
+        <div class="card"><div class="value">{{ ens.strong_anomalies }}</div><div class="label">Strong Anomalies (All 3 models)</div></div>
+        <div class="card"><div class="value">{{ ens.moderate_anomalies }}</div><div class="label">Moderate Anomalies (2 models)</div></div>
+        <div class="card"><div class="value">{{ ens.weak_anomalies }}</div><div class="label">Weak Anomalies (1 model)</div></div>
+        <div class="card"><div class="value">{{ '%.2f'|format(ens.anomaly_rate * 100) }}%</div><div class="label">Anomaly Rate</div></div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if causal_discovery and causal_discovery.pc_algorithm and 'edges' in causal_discovery.pc_algorithm %}
+    <section id="causal">
+      <h2>Causal Discovery (PC Algorithm)</h2>
+      <div class="table-container">
+        <table>
+          <tr><th>Source</th><th>Target</th><th>Edge Type</th></tr>
+          {% for edge in causal_discovery.pc_algorithm.edges %}
+          <tr>
+            <td><code>{{ edge.source }}</code></td>
+            <td><code>{{ edge.target }}</code></td>
+            <td>{{ edge.type }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </section>
+    {% endif %}

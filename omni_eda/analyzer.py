@@ -26,13 +26,23 @@ from omni_eda import (
 )
 from omni_eda.config import EDAConfig
 from omni_eda.detection import ColumnTypeDetector
+from omni_eda.fingerprint import DatasetFingerprint
+from omni_eda.complexity import DatasetComplexity
+from omni_eda.information_theory import InformationTheoryAnalysis
+from omni_eda.distribution import DistributionDiagnostics
+from omni_eda.power import StatisticalPowerAnalysis
+from omni_eda.synthetic import SyntheticDataDiagnostics
+from omni_eda.dependency import DependencyDiscovery
+from omni_eda.interaction import FeatureInteractionExplorer
+from omni_eda.anomaly import AnomalyAnalysis
+from omni_eda.causal import CausalDiscovery
 from omni_eda.export import export_all
 from omni_eda.logger import get_logger, set_verbosity, stage
 from omni_eda.report import ReportBuilder, build_console_summary
 from omni_eda.utils import sample_df
 from omni_eda.visualization import PlotEngine
 
-__version__ = "0.2.3"
+__version__ = "0.3.0"
 
 DataSource = Union[str, Path, pd.DataFrame]
 
@@ -116,6 +126,31 @@ class OmniEDA:
             profiles = detector.profile_dataframe(df)
         results["profiles"] = profiles
 
+        # ---- 1.1 Core Diagnostics & Metadata (Phase 1) ---------------------
+        with stage(self.logger, "Generating dataset fingerprint"):
+            fingerprint = DatasetFingerprint(df, profiles=profiles)
+            results["fingerprint"] = fingerprint.get_metadata_report()
+
+        with stage(self.logger, "Estimating dataset complexity"):
+            complexity = DatasetComplexity(df)
+            results["complexity"] = complexity.get_complexity_report()
+
+        with stage(self.logger, "Computing information theory metrics"):
+            it_analysis = InformationTheoryAnalysis(df)
+            results["information_theory"] = it_analysis.get_report()
+
+        with stage(self.logger, "Running advanced distribution diagnostics"):
+            dist_diagnostics = DistributionDiagnostics(df)
+            results["distribution_diagnostics"] = dist_diagnostics.get_report()
+
+        with stage(self.logger, "Running statistical power analysis"):
+            power_analysis = StatisticalPowerAnalysis(df)
+            results["power_analysis"] = power_analysis.get_report(target_col=self.config.target_column)
+
+        with stage(self.logger, "Evaluating synthetic data parameters"):
+            synth_diagnostics = SyntheticDataDiagnostics(df)
+            results["synthetic_diagnostics"] = synth_diagnostics.get_report()
+
         # Save data samples for the report overview
         results["df_head"] = df.head(5).copy()
         results["df_tail"] = df.tail(5).copy()
@@ -155,9 +190,38 @@ class OmniEDA:
             # v0.2: Explaining multivariate outliers
             results["outlier_explanations"] = outliers.explain_outliers(df, numeric_cols, multi_outliers, cfg)
 
-        # ---- 5.5 Clustering Tendency ------------------------------------------
-        with stage(self.logger, "Evaluating clustering tendency (Hopkins Statistic)"):
-            results["hopkins_statistic"] = clustering.compute_hopkins_statistic(df, profiles, cfg)
+        # ---- 5.5 Clustering Analysis ------------------------------------------
+        with stage(self.logger, "Running feature and sample clustering"):
+            # Sample clustering and Hopkins
+            results["hopkins_statistic"] = clustering.compute_hopkins_statistic(df)
+            sample_clust = clustering.SampleClustering(df)
+            results["sample_clustering"] = sample_clust.run_clustering()
+            
+            # Feature clustering (needs numeric correlation)
+            corr_matrix = None
+            if "numeric" in results["correlation"] and cfg.correlation_methods:
+                method = cfg.correlation_methods[0]
+                if method in results["correlation"]["numeric"]:
+                    corr_matrix = results["correlation"]["numeric"][method]
+                    
+            feat_clust = clustering.FeatureClustering(df, correlation_matrix=corr_matrix)
+            results["feature_clustering"] = feat_clust.get_report()
+
+        # ---- 5.6 Dependency & Interaction Discovery --------------------------
+        with stage(self.logger, "Discovering dependencies and associations"):
+            dependency = DependencyDiscovery(df)
+            results["dependencies"] = dependency.get_report()
+            
+            interaction = FeatureInteractionExplorer(df, target_col=self.config.target_column)
+            results["interactions"] = interaction.get_report()
+            
+            causal = CausalDiscovery(df)
+            results["causal_discovery"] = causal.get_report()
+
+        # ---- 5.7 Advanced Anomaly Analysis -----------------------------------
+        with stage(self.logger, "Running ensemble anomaly detection"):
+            anomaly = AnomalyAnalysis(df)
+            results["advanced_anomalies"] = anomaly.get_report()
 
         # ---- 6. Data quality report -------------------------------------------
         with stage(self.logger, "Building data quality report"):
